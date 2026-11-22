@@ -1,0 +1,29 @@
+name: assistant
+
+services:
+  kandev:
+    # Fija un tag real en .env; nunca uses latest en un despliegue persistente.
+    image: ghcr.io/kdlbs/kandev:${KANDEV_VERSION:?define KANDEV_VERSION en .env}
+    ports:
+      - "127.0.0.1:${KANDEV_PORT:-38429}:38429"
+    environment:
+      KANDEV_HOME_DIR: /data
+      KANDEV_LOG_LEVEL: ${KANDEV_LOG_LEVEL:-info}
+    volumes:
+      - kandev-data:/data
+    cpus: "2.0"
+    mem_limit: 4g
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:38429/api/v1/workspaces').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  kandev-data:

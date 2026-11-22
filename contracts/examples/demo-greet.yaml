@@ -1,0 +1,55 @@
+id: demo-greet
+title: "Saludo con validación de nombre"
+objective: "greet(name) saluda y rechaza nombres vacíos."
+status: ready
+
+acceptance:
+  - id: A1
+    criterion: "greet('Andrés') devuelve 'Hola, Andrés!'."
+    evidence: test
+  - id: A2
+    criterion: "greet('') lanza un error con mensaje 'nombre requerido'."
+    evidence: test
+
+no_goals:
+  - "No cambiar la firma de greet."
+  - "No agregar dependencias."
+
+scope:
+  repos:
+    - examples/demo-repo
+  paths_allow:
+    - "src/**"
+    - "test/**"
+  paths_deny:
+    - ".github/**"
+    - "package-lock.json"
+
+checks:
+  - name: tests
+    run: "npm test"
+    timeout_s: 60
+
+models:
+  planner:
+    provider: frontier
+    model: definir
+  builder:
+    provider: deepseek
+    model: deepseek-chat
+  verifier:
+    provider: openrouter
+    model: anthropic/claude-sonnet-4.5
+
+budget:
+  max_attempts: 2
+  max_minutes: 10
+  max_usd: 0.5
+
+protected_paths:
+  - ".github/**"
+
+evidence_required:
+  - tests
+  - diff
+  - verifier_verdict
