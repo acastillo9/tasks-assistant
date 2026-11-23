@@ -37,7 +37,7 @@ La tarea creada por Hermes entra en `Intake`. El contrato lo escribe un humano; 
 | `aprueba plan <task>` | Mueve a Build solo si el plan está revisado |
 | `rechaza <task> <motivo>` | Comenta y devuelve a Build |
 | `digest` | Corre el prompt de `hermes/digest.md` |
-| `costo` | Lee `assistant report` o las stats de Kandev |
+| `costo` | Lee `tasks-assistant report` o las stats de Kandev |
 
 ## Digest diario
 

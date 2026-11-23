@@ -54,9 +54,9 @@ export function assertDistinctRoles(builder: ProviderRef, verifier: ProviderRef)
   }
 }
 
-export function readVerifierInstructions(assistantHome: string): string {
-  const prompt = readFileSync(resolve(assistantHome, "verifier", "prompt.md"), "utf8");
-  const rubric = readFileSync(resolve(assistantHome, "verifier", "rubric.md"), "utf8");
+export function readVerifierInstructions(tasksAssistantHome: string): string {
+  const prompt = readFileSync(resolve(tasksAssistantHome, "verifier", "prompt.md"), "utf8");
+  const rubric = readFileSync(resolve(tasksAssistantHome, "verifier", "rubric.md"), "utf8");
   return `${prompt.trim()}\n\n---\n\n${rubric.trim()}`;
 }
 

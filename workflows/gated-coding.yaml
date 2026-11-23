@@ -15,7 +15,7 @@ workflows:
     description: Contrato humano, plan aprobado, build barato, checks deterministas, verifier con otro modelo y gate humano.
     prompt: |
       Trabajas dentro de una tarea con contrato. El contrato vive en
-      $HOME/acastillo/assistant/contracts/tasks/{task_id}.yaml y es la fuente de
+      $HOME/acastillo/tasks-assistant/contracts/tasks/{task_id}.yaml y es la fuente de
       verdad escrita por un humano.
 
       Reglas que aplican en todos los pasos:
@@ -37,7 +37,7 @@ workflows:
         allow_manual_move: true
         prompt: |
           Este paso es humano. Antes de mover la tarea:
-          1. Crea el contrato: assistant init --id {task_id} --title "..."
+          1. Crea el contrato: tasks-assistant init --id {task_id} --title "..."
           2. Completa objetivo, criterios, no-goals, scope, tests y presupuesto.
           3. Revisa que cada criterio tenga evidencia verificable.
           4. Mueve la tarea a Plan.
@@ -102,11 +102,11 @@ workflows:
           "arregles" nada. Otro modelo y otro proveedor hacen esta revisión.
 
           Paso 1 — capa determinista:
-            assistant check --contract $HOME/acastillo/assistant/contracts/tasks/{task_id}.yaml --repo .
+            tasks-assistant check --contract $HOME/acastillo/tasks-assistant/contracts/tasks/{task_id}.yaml --repo .
           Si falla, reporta FAIL con el log y no llames al verifier.
 
           Paso 2 — capa LLM:
-            assistant verify --contract $HOME/acastillo/assistant/contracts/tasks/{task_id}.yaml --repo . --diff-base main --save-prompt
+            tasks-assistant verify --contract $HOME/acastillo/tasks-assistant/contracts/tasks/{task_id}.yaml --repo . --diff-base main --save-prompt
           Adjunta la ruta de verdict.json, el resumen y el costo.
 
           Si el veredicto es FAIL, lista los hallazgos blocker/major con
@@ -122,7 +122,7 @@ workflows:
           Este paso es humano. Revisa:
           - diff completo y archivos tocados,
           - verdict.json y salida de checks,
-          - costo del intento: assistant report,
+          - costo del intento: tasks-assistant report,
           - que no haya secretos, cambios de CI ni archivos protegidos.
 
           Decide:

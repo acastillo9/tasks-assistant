@@ -42,7 +42,7 @@ El import del workflow **no crea perfiles**. Enlaza por nombre visible + modelo 
 ## 4. Importar el workflow
 
 ```bash
-cd ~/acastillo/assistant
+cd ~/acastillo/tasks-assistant
 ./scripts/import-workflow.sh
 # o con workspace explícito:
 ./scripts/import-workflow.sh gated-coding.yaml <workspace-id>
@@ -62,7 +62,7 @@ sqlite3 ~/.kandev/data/kandev.db \
 1. **Intake**: crea el contrato.
 
    ```bash
-   assistant init --id <task-id> --title "Una frase"
+   tasks-assistant init --id <task-id> --title "Una frase"
    $EDITOR contracts/tasks/<task-id>.yaml
    ```
 
@@ -75,13 +75,13 @@ sqlite3 ~/.kandev/data/kandev.db \
 4. **Verify**: el paso corre, en orden:
 
    ```bash
-   assistant check --contract contracts/tasks/<task-id>.yaml --repo .
-   assistant verify --contract contracts/tasks/<task-id>.yaml --repo . --diff-base main
+   tasks-assistant check --contract contracts/tasks/<task-id>.yaml --repo .
+   tasks-assistant verify --contract contracts/tasks/<task-id>.yaml --repo . --diff-base main
    ```
 
    Si `check` falla, no hay llamada al verifier.
 
-5. **Human Gate**: revisa diff, `verdict.json`, `checks.json` y `assistant report`. Aprueba, devuelve a `Build` o escala.
+5. **Human Gate**: revisa diff, `verdict.json`, `checks.json` y `tasks-assistant report`. Aprueba, devuelve a `Build` o escala.
 
 6. **Done**: se archiva a los 7 días.
 
@@ -97,14 +97,14 @@ runs/<task-id>/attempt-<n>/
 └── verdict.json
 ```
 
-Histórico: `runs/ledger.jsonl`. Cada línea registra tarea, intento, builder, verifier, criterios, hallazgos, tokens, costo y latencia. `assistant report` lo resume.
+Histórico: `runs/ledger.jsonl`. Cada línea registra tarea, intento, builder, verifier, criterios, hallazgos, tokens, costo y latencia. `tasks-assistant report` lo resume.
 
 `runs/` está en `.gitignore`: la evidencia es operativa, no fuente de verdad. Si quieres conservarla, súbela a un bucket o inclúyela en el backup.
 
 ## 7. VPS
 
 ```bash
-cd ~/acastillo/assistant
+cd ~/acastillo/tasks-assistant
 cp .env.example .env
 # edita KANDEV_VERSION con un tag real y las keys
 docker compose -f compose/docker-compose.yml up -d
@@ -150,8 +150,8 @@ No dependas de Office mode (experimental).
 |---|---|---|
 | `import` devuelve `skipped` | Ya existe un workflow con ese nombre | Bórralo en la UI o usa otro nombre |
 | Paso sin agente | Perfil no coincide en nombre/modelo/modo | Asígnalo en la UI; revisa `agent_profile_id` en SQLite |
-| `assistant: falta --contract` | Flag omitido | `--contract contracts/tasks/<id>.yaml` |
-| `no hay evidencia de checks` | No corriste `assistant check` o el intento no coincide | Corre check con el mismo `--attempt` |
+| `tasks-assistant: falta --contract` | Flag omitido | `--contract contracts/tasks/<id>.yaml` |
+| `no hay evidencia de checks` | No corriste `tasks-assistant check` o el intento no coincide | Corre check con el mismo `--attempt` |
 | `diff excede el máximo` | Cambio demasiado grande | Parte la tarea o revisa solo los archivos del scope |
 | `verificador inválido` | Builder y verifier comparten proveedor/modelo | Cambia `VERIFIER_MODEL` o el contrato |
 | `proveedor verifier 401` | Key incorrecta o sin saldo | Revisa `VERIFIER_API_KEY` y el proveedor |

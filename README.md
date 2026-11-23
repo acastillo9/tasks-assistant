@@ -1,4 +1,4 @@
-# assistant
+# tasks-assistant
 
 Plano de control para tareas agénticas: tablero Kandev, builder OpenCode, verificación en tres capas y Hermes como operador. El brief vive en `Projects/side/panel-tareas-agentes.md` del vault.
 
@@ -8,8 +8,8 @@ Validado en local el 2026-11-22:
 
 - Kandev instalado y corriendo en `http://127.0.0.1:38429`.
 - Workflow `Gated Coding` importado en el workspace default (6 pasos).
-- `assistant check` corre los checks del contrato y escribe evidencia.
-- `assistant verify --dry-run` arma el prompt con contrato + checks + diff.
+- `tasks-assistant check` corre los checks del contrato y escribe evidencia.
+- `tasks-assistant verify --dry-run` arma el prompt con contrato + checks + diff.
 - 12 tests del CLI en verde.
 
 Pendiente: keys de proveedores, perfiles por rol en Kandev, VPS, MCP de Hermes y el primer task real end-to-end.
@@ -43,7 +43,7 @@ Yo ── panel Kandev ──┐
 | `contracts/task-contract.schema.json` | Esquema JSON del contrato |
 | `contracts/tasks/` | Contratos reales, uno por tarea (`<task-id>.yaml`) |
 | `contracts/examples/demo-greet.yaml` | Contrato de ejemplo, usado por los tests |
-| `src/cli.ts` | `assistant init / check / verify / report` |
+| `src/cli.ts` | `tasks-assistant init / check / verify / report` |
 | `src/checks.ts` | Capa 1: ejecuta comandos, captura logs y timeout |
 | `src/verify.ts` | Capa 2: prompt, llamada al verifier, parseo y guards |
 | `verifier/prompt.md` | System prompt del verificador |
@@ -57,9 +57,9 @@ Yo ── panel Kandev ──┐
 ## Quickstart local
 
 ```bash
-cd ~/acastillo/assistant
+cd ~/acastillo/tasks-assistant
 npm install
-npm link                 # deja el comando `assistant` en PATH
+npm link                 # deja el comando `tasks-assistant` en PATH
 
 kandev start --headless  # panel en http://localhost:38429
 ./scripts/import-workflow.sh
@@ -68,14 +68,14 @@ kandev start --headless  # panel en http://localhost:38429
 Crear una tarea:
 
 ```bash
-assistant init --id mi-tarea --title "Una frase"
+tasks-assistant init --id mi-tarea --title "Una frase"
 $EDITOR contracts/tasks/mi-tarea.yaml
 ```
 
 Correr la capa determinista contra la worktree:
 
 ```bash
-assistant check --contract contracts/tasks/mi-tarea.yaml --repo ~/ruta/al/repo
+tasks-assistant check --contract contracts/tasks/mi-tarea.yaml --repo ~/ruta/al/repo
 ```
 
 Verificar con otro modelo (después de que los checks pasen):
@@ -84,14 +84,14 @@ Verificar con otro modelo (después de que los checks pasen):
 export VERIFIER_BASE_URL=https://openrouter.ai/api/v1
 export VERIFIER_API_KEY=...
 export VERIFIER_MODEL=anthropic/claude-sonnet-4.5
-assistant verify --contract contracts/tasks/mi-tarea.yaml \
+tasks-assistant verify --contract contracts/tasks/mi-tarea.yaml \
   --repo ~/ruta/al/repo --diff-base main
 ```
 
 Costo acumulado:
 
 ```bash
-assistant report
+tasks-assistant report
 ```
 
 ## Reglas duras

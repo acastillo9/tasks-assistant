@@ -53,5 +53,5 @@ budget:
 El esquema completo está en `contracts/task-contract.schema.json`. Para crear uno:
 
 ```bash
-assistant init --id mi-tarea --title "Una frase"
+tasks-assistant init --id mi-tarea --title "Una frase"
 ```

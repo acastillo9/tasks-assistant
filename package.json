@@ -1,11 +1,11 @@
 {
-  "name": "assistant",
+  "name": "tasks-assistant",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Panel de tareas y agentes: capa de contrato, checks deterministas y verificación para Kandev + OpenCode + Hermes.",
   "bin": {
-    "assistant": "./src/cli.ts"
+    "tasks-assistant": "./src/cli.ts"
   },
   "engines": {
     "node": ">=22.18"

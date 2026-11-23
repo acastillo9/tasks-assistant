@@ -18,12 +18,12 @@ import {
   type VerifierResponse,
 } from "./verify.ts";
 
-const ASSISTANT_HOME = process.env.ASSISTANT_HOME
-  ? resolve(process.env.ASSISTANT_HOME)
+const TASKS_ASSISTANT_HOME = process.env.TASKS_ASSISTANT_HOME
+  ? resolve(process.env.TASKS_ASSISTANT_HOME)
   : resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const LEDGER_PATH = resolve(ASSISTANT_HOME, "runs", "ledger.jsonl");
-const PRICING_PATH = resolve(ASSISTANT_HOME, "config", "pricing.yaml");
+const LEDGER_PATH = resolve(TASKS_ASSISTANT_HOME, "runs", "ledger.jsonl");
+const PRICING_PATH = resolve(TASKS_ASSISTANT_HOME, "config", "pricing.yaml");
 
 class CliError extends Error {
   readonly exitCode: number;
@@ -55,7 +55,7 @@ function parseAttempt(value: string | boolean | undefined): number | undefined {
 
 function loadChecksSummary(path: string, contract: TaskContract): ChecksSummary {
   if (!existsSync(path)) {
-    throw new CliError(`no hay evidencia de checks en ${path}; corre "assistant check" primero`);
+    throw new CliError(`no hay evidencia de checks en ${path}; corre "tasks-assistant check" primero`);
   }
   const summary = JSON.parse(readFileSync(path, "utf8")) as ChecksSummary;
   if (summary.taskId !== contract.id) {
@@ -250,7 +250,7 @@ async function commandVerify(values: Record<string, string | boolean | undefined
   }
 
   const checksPath = resolve(
-    (values.checks as string | undefined) ?? resolve(ASSISTANT_HOME, "runs", contract.id, `attempt-${attempt}`, "checks.json"),
+    (values.checks as string | undefined) ?? resolve(TASKS_ASSISTANT_HOME, "runs", contract.id, `attempt-${attempt}`, "checks.json"),
   );
   const checks = loadChecksSummary(checksPath, contract);
   if (!checks.allPassed) {
@@ -276,11 +276,11 @@ async function commandVerify(values: Record<string, string | boolean | undefined
   };
   assertDistinctRoles(builder, actualVerifier);
 
-  const systemPrompt = readVerifierInstructions(ASSISTANT_HOME);
+  const systemPrompt = readVerifierInstructions(TASKS_ASSISTANT_HOME);
   const userPrompt = buildVerifierPrompt({ contract, diff, checksSummary: checks, attempt });
 
   if (values["save-prompt"]) {
-    const promptPath = resolve(ASSISTANT_HOME, "runs", contract.id, `attempt-${attempt}`, "verifier-prompt.md");
+    const promptPath = resolve(TASKS_ASSISTANT_HOME, "runs", contract.id, `attempt-${attempt}`, "verifier-prompt.md");
     mkdirSync(dirname(promptPath), { recursive: true });
     writeFileSync(promptPath, `# System\n\n${systemPrompt}\n\n# User\n\n${userPrompt}\n`);
     out(`Prompt guardado en ${promptPath}`);
@@ -355,7 +355,7 @@ async function commandVerify(values: Record<string, string | boolean | undefined
   });
   appendLedger(LEDGER_PATH, entry);
 
-  const verdictPath = resolve(ASSISTANT_HOME, "runs", contract.id, `attempt-${attempt}`, "verdict.json");
+  const verdictPath = resolve(TASKS_ASSISTANT_HOME, "runs", contract.id, `attempt-${attempt}`, "verdict.json");
   mkdirSync(dirname(verdictPath), { recursive: true });
   writeFileSync(
     verdictPath,
@@ -466,14 +466,14 @@ async function main(): Promise<number> {
   const command = positionals[0];
 
   if (!command || values.help || command === "help") {
-    out(`assistant — contrato, checks y verificación
+    out(`tasks-assistant — contrato, checks y verificación
 
 Uso:
-  assistant init --id <slug> --title <título> [--out contracts/tasks]
-  assistant check --contract <archivo> [--repo <dir>] [--attempt <n>]
-  assistant verify --contract <archivo> --repo <dir> (--diff <archivo|-> | --diff-base <ref>)
+  tasks-assistant init --id <slug> --title <título> [--out contracts/tasks]
+  tasks-assistant check --contract <archivo> [--repo <dir>] [--attempt <n>]
+  tasks-assistant verify --contract <archivo> --repo <dir> (--diff <archivo|-> | --diff-base <ref>)
                    [--attempt <n>] [--dry-run] [--save-prompt]
-  assistant report [--ledger <archivo>] [--json]
+  tasks-assistant report [--ledger <archivo>] [--json]
 
 Reglas:
   - Los checks salen del contrato escrito por un humano, no del agente.
@@ -482,7 +482,7 @@ Reglas:
   - PASS exige todos los criterios en PASS y cero hallazgos blocker/major.
 
 Variables:
-  ASSISTANT_HOME       raíz de este repo (default: la del CLI)
+  TASKS_ASSISTANT_HOME       raíz de este repo (default: la del CLI)
   VERIFIER_BASE_URL    endpoint OpenAI-compatible
   VERIFIER_API_KEY     key del verifier
   VERIFIER_MODEL       override del modelo verifier
@@ -498,7 +498,7 @@ Variables:
       const path = initContract({
         id,
         title,
-        outDir: resolve((values.out as string | undefined) ?? resolve(ASSISTANT_HOME, "contracts", "tasks")),
+        outDir: resolve((values.out as string | undefined) ?? resolve(TASKS_ASSISTANT_HOME, "contracts", "tasks")),
       });
       out(`Contrato creado: ${path}`);
       out("Completa criterios, scope y comandos de test antes de pasarlo a Kandev.");
@@ -517,7 +517,7 @@ Variables:
       }
 
       const repo = resolve((values.repo as string | undefined) ?? process.cwd());
-      const outDir = resolve(ASSISTANT_HOME, "runs", contract.id, `attempt-${attempt}`);
+      const outDir = resolve(TASKS_ASSISTANT_HOME, "runs", contract.id, `attempt-${attempt}`);
       const summary = await runChecks(contract, { repo, attempt, outDir });
       printChecks(summary);
 
@@ -561,6 +561,6 @@ main()
   .catch((error) => {
     const exitCode = error instanceof CliError ? error.exitCode : 2;
     const message = error instanceof ContractError || error instanceof Error ? error.message : String(error);
-    process.stderr.write(`assistant: ${message}\n`);
+    process.stderr.write(`tasks-assistant: ${message}\n`);
     process.exit(exitCode);
   });

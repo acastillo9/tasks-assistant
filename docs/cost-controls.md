@@ -6,10 +6,10 @@ Objetivo: pagar VPS + tokens, nada más. El gasto se controla en cuatro capas: p
 
 | Control | Dónde vive | ¿Automático? |
 |---|---|---|
-| Máximo de intentos | `budget.max_attempts` + `assistant verify` | Sí: el CLI rechaza el intento N+1 |
+| Máximo de intentos | `budget.max_attempts` + `tasks-assistant verify` | Sí: el CLI rechaza el intento N+1 |
 | Presupuesto por tarea | `budget.max_usd` | Parcial: queda en el contrato y el ledger; el corte es humano |
 | Concurrencia 1–2 | Kandev / executor | Configuración manual |
-| Tests antes del verifier | `assistant verify` | Sí: falla si la capa 1 no pasó |
+| Tests antes del verifier | `tasks-assistant verify` | Sí: falla si la capa 1 no pasó |
 | Contexto mínimo | `MAX_DIFF_BYTES` (200 KB) | Sí: falla en vez de truncar |
 | Modelo barato por defecto | Perfil del paso `Build` | Configuración manual |
 | Escalar a modelo caro | Perfil `Plan` o reintento | Humano |
@@ -45,7 +45,7 @@ Cada verificación agrega una línea:
 }
 ```
 
-El costo se calcula solo si el modelo está en `config/pricing.yaml`. Si falta, `cost_usd` es `null` y `assistant report` lo marca como `s/tarifa`. Mantén las tarifas actualizadas; el ledger es una estimación, no la factura.
+El costo se calcula solo si el modelo está en `config/pricing.yaml`. Si falta, `cost_usd` es `null` y `tasks-assistant report` lo marca como `s/tarifa`. Mantén las tarifas actualizadas; el ledger es una estimación, no la factura.
 
 El costo del builder **no** lo captura este ledger: Kandev muestra tokens por sesión. Cruza ambos en el Human Gate.
 

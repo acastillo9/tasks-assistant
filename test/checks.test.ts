@@ -12,7 +12,7 @@ const DEMO_REPO = fileURLToPath(new URL("../examples/demo-repo", import.meta.url
 
 test("corre los checks del contrato y escribe evidencia", async () => {
   const contract = loadContract(EXAMPLE);
-  const outDir = mkdtempSync(join(tmpdir(), "assistant-checks-"));
+  const outDir = mkdtempSync(join(tmpdir(), "tasks-assistant-checks-"));
   const summary = await runChecks(contract, { repo: DEMO_REPO, attempt: 1, outDir });
 
   assert.equal(summary.allPassed, true);
@@ -26,7 +26,7 @@ test("un check que falla marca la capa 1 como FAIL", async () => {
     ...contract,
     checks: [{ name: "falla", run: "node -e \"process.exit(3)\"", timeout_s: 10 }],
   };
-  const outDir = mkdtempSync(join(tmpdir(), "assistant-checks-"));
+  const outDir = mkdtempSync(join(tmpdir(), "tasks-assistant-checks-"));
   const summary = await runChecks(failing, { repo: DEMO_REPO, attempt: 1, outDir });
 
   assert.equal(summary.allPassed, false);
