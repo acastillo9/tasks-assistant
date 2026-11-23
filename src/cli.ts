@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { ContractError, contractAsYaml, loadContract, type TaskContract } from "./contract.ts";
@@ -21,6 +21,11 @@ import {
 const TASKS_ASSISTANT_HOME = process.env.TASKS_ASSISTANT_HOME
   ? resolve(process.env.TASKS_ASSISTANT_HOME)
   : resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+const CLI_NAME = (() => {
+  const invoked = basename(process.argv[1] ?? "").replace(/\.[^.]+$/, "");
+  return invoked && invoked !== "cli" ? invoked : "tasks-assistant";
+})();
 
 const LEDGER_PATH = resolve(TASKS_ASSISTANT_HOME, "runs", "ledger.jsonl");
 const PRICING_PATH = resolve(TASKS_ASSISTANT_HOME, "config", "pricing.yaml");
@@ -55,7 +60,7 @@ function parseAttempt(value: string | boolean | undefined): number | undefined {
 
 function loadChecksSummary(path: string, contract: TaskContract): ChecksSummary {
   if (!existsSync(path)) {
-    throw new CliError(`no hay evidencia de checks en ${path}; corre "tasks-assistant check" primero`);
+    throw new CliError(`no hay evidencia de checks en ${path}; corre "${CLI_NAME} check" primero`);
   }
   const summary = JSON.parse(readFileSync(path, "utf8")) as ChecksSummary;
   if (summary.taskId !== contract.id) {
@@ -466,14 +471,14 @@ async function main(): Promise<number> {
   const command = positionals[0];
 
   if (!command || values.help || command === "help") {
-    out(`tasks-assistant — contrato, checks y verificación
+    out(`${CLI_NAME} — contrato, checks y verificación
 
 Uso:
-  tasks-assistant init --id <slug> --title <título> [--out contracts/tasks]
-  tasks-assistant check --contract <archivo> [--repo <dir>] [--attempt <n>]
-  tasks-assistant verify --contract <archivo> --repo <dir> (--diff <archivo|-> | --diff-base <ref>)
+  ${CLI_NAME} init --id <slug> --title <título> [--out contracts/tasks]
+  ${CLI_NAME} check --contract <archivo> [--repo <dir>] [--attempt <n>]
+  ${CLI_NAME} verify --contract <archivo> --repo <dir> (--diff <archivo|-> | --diff-base <ref>)
                    [--attempt <n>] [--dry-run] [--save-prompt]
-  tasks-assistant report [--ledger <archivo>] [--json]
+  ${CLI_NAME} report [--ledger <archivo>] [--json]
 
 Reglas:
   - Los checks salen del contrato escrito por un humano, no del agente.
@@ -561,6 +566,6 @@ main()
   .catch((error) => {
     const exitCode = error instanceof CliError ? error.exitCode : 2;
     const message = error instanceof ContractError || error instanceof Error ? error.message : String(error);
-    process.stderr.write(`tasks-assistant: ${message}\n`);
+    process.stderr.write(`${CLI_NAME}: ${message}\n`);
     process.exit(exitCode);
   });

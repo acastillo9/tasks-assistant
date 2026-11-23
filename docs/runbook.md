@@ -7,6 +7,14 @@
 - Git y una cuenta de proveedor de modelos con API key.
 - macOS/Linux para el panel; Windows vía WSL.
 
+El CLI del repo:
+
+```bash
+cd ~/acastillo/tasks-assistant
+npm install
+npm link                 # deja `tasks-assistant` y el alias `tasks` en PATH
+```
+
 ## 2. Instalar Kandev
 
 Local:

@@ -59,7 +59,7 @@ Yo ── panel Kandev ──┐
 ```bash
 cd ~/acastillo/tasks-assistant
 npm install
-npm link                 # deja el comando `tasks-assistant` en PATH
+npm link                 # deja `tasks-assistant` y el alias `tasks` en PATH
 
 kandev start --headless  # panel en http://localhost:38429
 ./scripts/import-workflow.sh
