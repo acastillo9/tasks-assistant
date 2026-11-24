@@ -1,89 +1,140 @@
-# Portable Kandev workflow — plan → build → verify → human gate.
+# Portable Kandev workflow — spec -> plan -> build -> verify -> human gate.
 #
 # Import:
-#   ./scripts/import-workflow.sh <workspace-id>
+#   ./scripts/import-workflow.sh [workflow.yaml] [workspace-id]
 #
-# The import does not create agents or models. Assign the OpenCode profile in
-# Settings > Agents and the model per role (planner/builder/verifier) in each
-# profile before using the workflow. The `agent_profile` field only links the
-# OpenCode agent by display name; a model that does not exist is silently
-# dropped on import.
-version: 1
+# This workflow does not create agents or profiles. Create three profiles in
+# Kandev before importing (Planner, Builder, Verifier), then confirm every step
+# has the intended profile after import. Kandev matches profiles by display
+# name; a missing profile leaves the step without one and the task's agent is
+# used instead.
+#
+# The task description is the spec. The approved task plan is the contract.
+# There is no tasks-assistant CLI, no per-task YAML and no $TASKS_ASSISTANT_HOME.
+version: 2
 type: kandev_workflow
 workflows:
   - name: Gated Coding
-    description: Human contract, approved plan, cheap build, deterministic checks, verifier with another model and human gate.
+    description: Human spec, approved plan, cheap build, independent verification with another model, human gate.
     prompt: |
-      You work inside a task with a contract. The contract lives at
-      $TASKS_ASSISTANT_HOME/contracts/tasks/{task_id}.yaml and is the source of
-      truth written by a human. Set TASKS_ASSISTANT_HOME in the executor
-      profile (for example /data/tasks-assistant on the VPS).
+      You work inside a Kandev task. The task description is the spec and the
+      approved task plan is the contract. Read both before acting.
 
       Rules that apply to every step:
-      - Read the full contract before acting.
-      - Never edit the contract, the acceptance criteria or the test commands.
+      - The human writes the task description and the test commands; do not
+        edit them.
       - Never weaken tests to make them pass.
-      - Do not touch files outside scope.paths_allow or protected files.
-      - If the contract is ambiguous or information is missing, stop and ask.
-      - At most 2 build attempts. On the third, escalate to a human.
-      - When each step ends, report what you did, which commands you ran and what risks remain.
-    agent_profile:
-      agent_name: OpenCode
+      - Stay inside the files named in the approved plan. If you need a
+        protected or out-of-scope file, stop.
+      - If the task is ambiguous or information is missing, stop and ask.
+      - At most 2 build loops; the third is a human decision.
+      - When each step ends, report what you did, which commands you ran and
+        what risks remain.
     steps:
       - name: Intake
         position: 0
         color: bg-neutral-400
+        prompt: |
+          This step is human. Before moving the task to Plan, write the task
+          description with these sections:
+
+          Objective:
+            One or two sentences. What must be true when this is done?
+
+          Acceptance:
+            - [ ] A verifiable item.
+            - [ ] Another verifiable item.
+
+          Test commands:
+            - `exact command that runs non-interactively in the task workspace`
+            - `another exact command`
+
+          Out of scope:
+            - What must not be touched.
+
+          Repo/branch:
+            Repository and base branch for this task.
+
+          Risk notes:
+            Anything that needs extra review (CI, auth, migrations, secrets).
+
+          Rules:
+          - Every acceptance item must be checkable by a command or a human.
+          - Test commands must run without prompts or watch mode.
+          - Do not move to Plan until this is complete.
+        events: {}
         is_start_step: true
         show_in_command_panel: true
         allow_manual_move: true
-        prompt: |
-          This step is human. Before moving the task:
-          1. Create the contract: tasks-assistant init --id {task_id} --title "..."
-          2. Complete the objective, criteria, no-goals, scope, tests and budget.
-          3. Check that every criterion has verifiable evidence.
-          4. Move the task to Plan.
+        complete_task_on_enter: false
+        auto_advance_requires_signal: false
+        cancel_triggers_turn_complete: false
 
       - name: Plan
         position: 1
         color: bg-purple-500
-        is_start_step: false
-        show_in_command_panel: true
-        allow_manual_move: true
         prompt: |
           Role: planner. Do not write code or edit files.
 
-          Analyze the contract and the repo. Produce a plan with:
+          Task description:
+          {{task_prompt}}
+
+          Read the task description and inspect the repository. Produce a plan
+          with:
+
           - requirements and assumptions,
-          - files that will be touched,
-          - ordered steps,
-          - test plan (exact commands from the contract),
+          - an acceptance checklist mapped to the task description,
+          - files that will be touched and why,
+          - ordered implementation steps,
+          - the exact test commands from the task description,
           - risks and what will not be touched.
 
-          Save the plan with create_task_plan_kandev and stop for human
-          review. Do not move to Build on your own.
+          Save the plan with create_task_plan_kandev and stop for human review.
+          Do not move the task to Build on your own.
+
+          If the task description is ambiguous or an acceptance item is not
+          verifiable, stop and ask.
         events:
           on_enter:
             - type: enable_plan_mode
             - type: auto_start_agent
           on_exit:
             - type: disable_plan_mode
+        is_start_step: false
+        show_in_command_panel: true
+        allow_manual_move: true
+        complete_task_on_enter: false
+        auto_advance_requires_signal: false
+        cancel_triggers_turn_complete: false
+        agent_profile:
+          agent_name: Planner
 
       - name: Build
         position: 2
         color: bg-blue-500
-        is_start_step: false
-        show_in_command_panel: true
-        allow_manual_move: true
         prompt: |
-          Role: builder. Implement only the approved plan, within scope.
+          Role: builder. Implement only the approved plan.
 
-          - Use the economy model assigned to this profile.
-          - Commit the work in the task worktree.
-          - Do not edit tests to make them pass; if a test is wrong, say so.
-          - If you need to touch a protected or out-of-scope file, stop.
+          Task description:
+          {{task_prompt}}
 
-          When finished, report: changed files, commands run, tests you
-          added and risks. Then move to Verify.
+          Rules:
+          - Work in the task workspace. Do not edit the task description,
+            acceptance criteria or test commands.
+          - Never weaken tests to make them pass. If a test is wrong, stop and
+            say so.
+          - Stay inside the files named in the plan. If you need a protected or
+            out-of-scope file, stop.
+          - Commit your changes in the task worktree.
+
+          Run the exact test commands from the task description and report:
+          - changed files,
+          - commands run and their results,
+          - risks and anything left undone.
+
+          If tests fail, report the failure and still signal completion;
+          Verify re-runs them independently. When your turn is complete, call
+          step_complete_kandev. Do not move the task yourself.
         events:
           on_enter:
             - type: auto_start_agent
@@ -91,54 +142,92 @@ workflows:
             - type: move_to_step
               config:
                 step_position: 3
+        is_start_step: false
+        show_in_command_panel: true
+        allow_manual_move: true
+        complete_task_on_enter: false
+        auto_advance_requires_signal: true
+        cancel_triggers_turn_complete: false
+        agent_profile:
+          agent_name: Builder
 
       - name: Verify
         position: 3
         color: bg-yellow-500
+        prompt: |
+          Role: verifier. You are read-only: do not edit files, do not commit,
+          do not fix anything. Use a different model/provider from the builder.
+
+          Task description:
+          {{task_prompt}}
+
+          Read the approved plan and the build output. Then:
+
+          1. Run the exact test commands from the task description. Paste the
+             full output.
+          2. Compare the diff with every acceptance item and the approved plan.
+          3. Check that no tests were weakened and no files outside the plan or
+             scope were changed.
+          4. Report for each acceptance item: PASS or FAIL, with file:line
+             evidence.
+          5. List blockers and major findings, or write "none".
+
+          When the report is written, call step_complete_kandev. Do not move the
+          task yourself.
+
+          If something fails, do not retry or fix it. The human gate decides.
+        events:
+          on_enter:
+            - type: auto_start_agent
+          on_turn_complete:
+            - type: move_to_step
+              config:
+                step_position: 4
         is_start_step: false
         show_in_command_panel: true
         allow_manual_move: true
-        prompt: |
-          Role: verifier. You are read-only: do not edit files, do not commit,
-          do not "fix" anything. Another model and another provider perform
-          this review.
-
-          Step 1 — deterministic layer:
-            tasks-assistant check --contract "$TASKS_ASSISTANT_HOME/contracts/tasks/{task_id}.yaml" --repo .
-          If it fails, report FAIL with the log and do not call the verifier.
-
-          Step 2 — LLM layer:
-            tasks-assistant verify --contract "$TASKS_ASSISTANT_HOME/contracts/tasks/{task_id}.yaml" --repo . --diff-base main --save-prompt
-          If the workspace is not a Git repo, generate a patch and use --diff:
-            diff -u /dev/null <file> > .kandev/changes.diff
-            tasks-assistant verify --contract "$TASKS_ASSISTANT_HOME/contracts/tasks/{task_id}.yaml" --repo . --diff .kandev/changes.diff --save-prompt
-          Attach the verdict.json path, the summary and the cost.
-
-          If the verdict is FAIL, list the blocker/major findings with
-          file:line and move to Human Gate. Do not retry on your own.
+        complete_task_on_enter: false
+        auto_advance_requires_signal: true
+        cancel_triggers_turn_complete: false
+        agent_profile:
+          agent_name: Verifier
 
       - name: Human Gate
         position: 4
         color: bg-orange-500
+        prompt: |
+          This step is human. Review:
+
+          - the full diff and touched files,
+          - the test output and the Verify report (PASS/FAIL per acceptance
+            item),
+          - token usage for Plan, Build and Verify,
+          - that no secrets, CI changes or out-of-scope files were touched,
+          - that the approved plan still matches the task description.
+
+          Decide:
+
+          - approve and move to Done,
+          - send back to Build with comments (at most 2 loops),
+          - escalate if the task description or the plan was wrong.
+
+          Do not approve if any acceptance item is unverified.
+        events: {}
         is_start_step: false
         show_in_command_panel: true
         allow_manual_move: true
-        prompt: |
-          This step is human. Review:
-          - full diff and touched files,
-          - verdict.json and check output,
-          - attempt cost: tasks-assistant report,
-          - that there are no secrets, CI changes or protected files.
-
-          Decide:
-          - approve and move to Done,
-          - send back to Build with comments (at most 2 attempts),
-          - escalate if the contract was wrong or the risk is high.
+        complete_task_on_enter: false
+        auto_advance_requires_signal: false
+        cancel_triggers_turn_complete: false
 
       - name: Done
         position: 5
         color: bg-green-500
+        events: {}
         is_start_step: false
         show_in_command_panel: false
         allow_manual_move: true
         auto_archive_after_hours: 168
+        complete_task_on_enter: true
+        auto_advance_requires_signal: false
+        cancel_triggers_turn_complete: false

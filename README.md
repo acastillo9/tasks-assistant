@@ -1,218 +1,160 @@
 # tasks-assistant
 
-Control plane for agentic tasks: Kandev board, OpenCode builder, three-layer verification and Hermes as operator. The brief lives at `Projects/side/panel-tareas-agentes.md` in the vault.
+Kandev-only gated coding: a portable workflow for a human spec, an approved plan, a cheap builder, an independent verifier and a human gate.
+
+This repo no longer contains a CLI, per-task contracts or an evidence ledger. The task description is the spec, the approved task plan is the contract, and Kandev is the only runtime.
 
 ## Status
 
-Validated locally on 2026-11-22:
+Simplified on 2026-11-24. The previous Python contract/verifier control plane is archived in git:
 
-- Kandev installed and running at `http://127.0.0.1:38429`.
-- `Gated Coding` workflow imported into the default workspace (6 steps).
-- `tasks-assistant check` runs the contract checks and writes evidence.
-- `tasks-assistant verify --dry-run` builds the prompt with contract + checks + diff.
-- 70 CLI tests and 3 demo repo tests green.
-- The project is Python 3.11+ with `uv`; it does not require Node.
+- branch `archive/python-control-plane`
+- tag `pre-kandev-only`
 
-Pending: provider keys, per-role profiles in Kandev, the VPS, Hermes MCP and the first real end-to-end task.
+If the Kandev-only flow proves too weak, restore it from that tag instead of rebuilding it.
 
 ## Architecture
 
 ```text
-Me ── Kandev panel ───┐
-  └─ Hermes (Telegram) ─┤ MCP
-                        ▼
-                 Kandev (SQLite, worktrees)
-                 ├─ Intake      human writes contract
-                 ├─ Plan        planner (strong model)
-                 ├─ Build       builder (cheap model)
-                 ├─ Verify      checks → verifier (another provider)
-                 └─ Human Gate  diff + evidence + cost
-                        │
-                 runs/<task>/attempt-N/
-                 ├─ 01-tests.log
-                 ├─ checks.json
-                 ├─ verifier-prompt.md
-                 └─ verdict.json
+Me ── Kandev panel ── Hermes (optional, MCP)
+          │
+          ▼
+       Kandev (SQLite + worktrees)
+       ├─ Intake      human writes the task description
+       ├─ Plan        Planner profile, plan mode
+       ├─ Build       Builder profile, cheap model
+       ├─ Verify      Verifier profile, another provider/model
+       └─ Human Gate  diff + test output + Verify report
 ```
 
-## Structure
+Kandev stores the task, the plan (with version history), the conversations and the step transitions. There is no `runs/` directory and no cost ledger; Kandev shows token usage per session.
 
-| Path | What it is |
-|---|---|
-| `pyproject.toml` | Dependencies, entry points and pytest/ruff configuration |
-| `workflows/gated-coding.yaml` | Portable Kandev workflow (plan → build → verify → gate) |
-| `contracts/task-contract.md` | Task contract rules |
-| `contracts/task-contract.schema.json` | JSON schema for the contract |
-| `contracts/tasks/` | Real contracts, one per task (`<task-id>.yaml`) |
-| `contracts/examples/demo-greet.yaml` | Example contract with a repo, used by the tests |
-| `contracts/examples/demo-no-repo.yaml` | Example contract without Git |
-| `examples/no-repo/` | Content task with its own check, without a repository |
-| `src/tasks_assistant/cli.py` | `tasks-assistant init / check / verify / report` |
-| `src/tasks_assistant/checks.py` | Layer 1: run commands, capture logs and timeouts |
-| `src/tasks_assistant/verify.py` | Layer 2: prompt, verifier call, parsing and guards |
-| `tests/` | `pytest` suite and parity fixtures |
-| `examples/demo-repo/` | Minimal Python repo for testing the checks |
-| `verifier/prompt.md` | Verifier system prompt |
-| `verifier/rubric.md` | Review rubric |
-| `hermes/` | Hermes MCP connection and daily digest |
-| `compose/docker-compose.yml` | Kandev for the VPS, port bound to loopback only |
-| `docs/runbook.md` | Installation, operation, VPS, backups |
-| `docs/cost-controls.md` | Budgets, attempts, concurrency, ledger |
-| `docs/security.md` | Trust boundaries and permissions |
+## Quickstart
 
-## Local quickstart
-
-Requirements: **Python 3.11+** and **[uv](https://docs.astral.sh/uv/)**. Node is not required.
+Requirements: Kandev. Docker only for the VPS or a containerized executor. The import helper uses `curl` and `python3`.
 
 ```bash
 cd ~/acastillo/tasks-assistant
-uv sync --dev
-uv tool install --editable .   # leaves `tasks-assistant` and the `tasks` alias on PATH
-
-kandev start --headless        # panel at http://localhost:38429
-./scripts/import-workflow.sh
+kandev start --headless          # panel at http://localhost:38429
 ```
 
-If you prefer not to install it as a tool, use `uv run tasks-assistant ...`.
+Before importing, create the workspace, add the repository, and create three agent profiles in Kandev:
 
-Create a task:
-
-```bash
-tasks-assistant init --id my-task --title "One sentence"
-$EDITOR contracts/tasks/my-task.yaml
-```
-
-Run the deterministic layer against the worktree:
-
-```bash
-tasks-assistant check --contract contracts/tasks/my-task.yaml --repo ~/path/to/repo
-```
-
-Verify with another model (after the checks pass):
-
-```bash
-export VERIFIER_BASE_URL=https://openrouter.ai/api/v1
-export VERIFIER_API_KEY=...
-export VERIFIER_MODEL=anthropic/claude-sonnet-4.5
-tasks-assistant verify --contract contracts/tasks/my-task.yaml \
-  --repo ~/path/to/repo --diff-base main
-```
-
-Cumulative cost:
-
-```bash
-tasks-assistant report
-```
-
-Run the suite:
-
-```bash
-uv run pytest
-uv run ruff check .
-```
-
-### Test without spending tokens
-
-The quick path, without touching your real ledger:
-
-```bash
-./scripts/demo-local.sh
-```
-
-The `contracts/tasks/demo-local.yaml` contract points to the example Python repo. To do it step by step:
-
-```bash
-python3 scripts/mock-verifier.py &
-export VERIFIER_BASE_URL=http://127.0.0.1:8765/v1
-export VERIFIER_API_KEY=test
-export VERIFIER_MODEL=mock-verifier
-export TASKS_ASSISTANT_HOME="$PWD"
-
-tasks-assistant check --contract contracts/tasks/demo-local.yaml \
-  --repo examples/demo-repo --attempt 1
-tasks-assistant verify --contract contracts/tasks/demo-local.yaml \
-  --repo examples/demo-repo --diff examples/demo.diff --attempt 1
-tasks-assistant report
-```
-
-The mock extracts the acceptance ids from the prompt and returns PASS for each one. For real verification, use another provider/model and a key with a spending cap.
-
-### Repo-less task
-
-You can also work without Git: `--repo` is only the working directory, and the verifier receives a patch with `--diff`.
-
-```bash
-./scripts/demo-no-repo.sh
-```
-
-The example lives in `examples/no-repo/`: a deterministic `check.py` and an `output.md`. The script generates the patch with `diff -u /dev/null output.md`, without initializing Git.
-
-In Kandev, under **New Task**, choose Source **None** and a **Local** executor with a directory or scratch workspace. The task ID is still the UUID, so the contract is `contracts/tasks/<uuid>.yaml`. Because there is no `--diff-base`, the Verify step uses `--diff changes.diff` with a generated patch.
-
-## Daily flow
-
-Once Kandev is configured, day-to-day work is panel + contract. You do not run `check`/`verify` by hand: the workflow's **Verify** step runs them.
-
-| Step | Who does it | Frequency |
+| Profile | Model | Purpose |
 |---|---|---|
-| Create the task in **Intake** and copy its task ID | Human | Per task |
-| `tasks-assistant init --id <task-id> --title "..."` and complete the contract | Human | Per task |
-| Plan | Planner (agent) | Per task |
-| Build | Builder (agent) | Per task |
-| `tasks-assistant check` + `verify` | **Verify** step (agent) | Automatic |
-| Review evidence, cost and approve | Human (Human Gate) | Per task |
-| Configure keys, profiles, `TASKS_ASSISTANT_HOME`, pricing | Human | Once |
-| Test with the mock or demo | Human | Development only |
+| `Planner` | frontier (high-tier) | Reads the task, writes the plan |
+| `Builder` | economy | Implements the approved plan |
+| `Verifier` | another provider/model | Runs tests and reviews the diff |
 
-Typical human commands per task:
+Import does **not** create profiles. It links by display name; if a step cannot find its profile, Kandev falls back to the agent assigned to the task. Open every step after import and confirm the profile and model.
+
+Then import:
 
 ```bash
-TASK_ID=<kandev-uuid>
-tasks-assistant init --id "$TASK_ID" --title "One sentence"
-$EDITOR "contracts/tasks/$TASK_ID.yaml"
+./scripts/import-workflow.sh     # imports workflows/gated-coding.yaml
 ```
 
-After that, you move the task through the panel. The agent does the rest and you review the Human Gate.
+Import **skips an existing workflow with the same name**. If `Gated Coding` already exists, delete or rename it in Kandev first, then import.
 
-## Hard rules
+## The flow
 
-1. Checks come from the contract written by a human. The agent does not edit them.
-2. If layer 1 fails, the verifier is not called.
-3. Builder and verifier cannot be the same provider/model; the CLI fails if they are.
-4. A verifier `PASS` is downgraded to `FAIL` if a criterion is missing, there is a `blocker`/`major` finding, tests were weakened or protected files were touched.
-5. At most `budget.max_attempts` (1–5; default 2). When exceeded, a human is escalated.
-6. No agent approves its own work: the merge goes through the Human Gate.
-
-## Models by role
-
-| Role | Profile | Criterion |
+| Step | Who | What happens |
 |---|---|---|
-| Planner | Frontier (high-tier Claude/GPT) | Few calls, decides the plan |
-| Builder | Economy (DeepSeek/Kimi/Qwen/GLM) | Consumes most tokens |
-| Verifier | Another provider/model, plan mode | No writes, different bias |
-| Triage/digest | Local or economy | High volume, simple tasks |
+| **Intake** | Human | Writes the task description: objective, acceptance checklist, exact test commands, out of scope, repo/branch |
+| **Plan** | Planner | Produces a plan with an acceptance mapping and test plan; saves it with `create_task_plan_kandev`; stops for review |
+| **Build** | Builder | Implements only the approved plan, commits, runs the tests, reports, then calls `step_complete_kandev` |
+| **Verify** | Verifier | Read-only. Re-runs the exact tests, reviews the diff against every acceptance item, reports PASS/FAIL with file:line, then signals |
+| **Human Gate** | Human | Reviews diff, test output, Verify report and token usage; approves to Done or sends back to Build |
+| **Done** | — | Task completes on entry; archived after 7 days |
 
-The model per role is assigned in Kandev (`Settings > Agents`) on each step's profile. The contract records the expected pair; the CLI verifies that builder and verifier are distinct. Prices for the ledger go in `config/pricing.yaml` (copy of `config/pricing.example.yaml`).
+Build and Verify use `auto_advance_requires_signal: true`. They only move forward when the agent calls `step_complete_kandev`. A pending clarification or an unfinished turn stays put.
 
-## Hermes and VPS
+## Task description template
 
-- `hermes/README.md`: `mcp_servers` snippet and digest prompts.
-- `compose/docker-compose.yml`: Kandev with a persistent volume and the port on loopback.
-- `docs/runbook.md`: deployment, reverse proxy, backups, upgrades and installing the Python CLI inside `/data`.
-
-On the VPS, the Verify step runs inside the agent environment. The canonical paths are:
+Paste this into the Kandev task description at Intake. The full version lives in `docs/task-template.md`.
 
 ```text
-TASKS_ASSISTANT_HOME=/data/tasks-assistant
-TASKS_ASSISTANT_STATE_DIR=/data/tasks-assistant/runs
+Objective:
+  One or two sentences. What must be true when this is done?
+
+Acceptance:
+  - [ ] A verifiable item.
+  - [ ] Another verifiable item.
+
+Test commands:
+  - `exact command`
+  - `exact command`
+
+Out of scope:
+  - What must not be touched.
+
+Repo/branch:
+  Repository and base branch.
+
+Risk notes:
+  CI, auth, migrations, secrets, or anything else that needs extra review.
 ```
 
-The workflow uses `$TASKS_ASSISTANT_HOME/contracts/tasks/{task_id}.yaml`. Define that variable in the Kandev executor profile.
+Every acceptance item must be checkable. Test commands must run non-interactively.
 
-## Licenses and cost
+## Hard rules (conventions, not enforced by a CLI)
 
-Kandev is AGPL-3.0 self-hosted. OpenCode and Hermes are open source. This repo is our own tooling. The only variable cost is model tokens and the VPS.
+1. The human writes the task description before Plan. The agent does not edit the acceptance criteria or test commands.
+2. The plan is approved by a human before Build.
+3. The builder never weakens a test to make it pass.
+4. Verify uses a different provider/model from Build.
+5. If any acceptance item is unverified, Human Gate does not approve.
+6. At most two Build loops; the third is a human decision.
+7. No agent approves its own work.
+
+## What this does not enforce
+
+The old CLI enforced these; Kandev does not:
+
+- immutable acceptance criteria (the task description and plan are editable),
+- a hard builder≠verifier check (it is a profile assignment),
+- structured `verdict.json` / `checks.json` evidence,
+- a cost ledger and attempt budget.
+
+The replacements are the approved plan, the separate Verify profile, the exact test commands, `step_complete_kandev` gating, and the Human Gate. Treat them as process, not as a security boundary.
+
+Audit trail: the task conversation, the plan's version history, and `GET /api/v1/tasks/:id/step-transitions`.
+
+## Repo layout
+
+| Path | What it is |
+|---|---|
+| `workflows/gated-coding.yaml` | Portable Kandev workflow |
+| `scripts/import-workflow.sh` | Imports the workflow into a workspace |
+| `docs/task-template.md` | Copy-paste task description template |
+| `docs/runbook.md` | Install, profiles, import, operate, VPS, upgrades |
+| `docs/security.md` | Trust boundaries and the VPS checklist |
+| `docs/cost-controls.md` | Kandev-native cost controls |
+| `compose/docker-compose.yml` | Kandev for the VPS, loopback only |
+| `hermes/` | Optional Telegram operator via Kandev MCP |
+
+## VPS
+
+The VPS needs Kandev and the imported workflow. It does **not** need the CLI, `uv`, contracts or `TASKS_ASSISTANT_HOME`.
+
+```bash
+cp .env.example .env
+# pin KANDEV_VERSION to a real tag
+docker compose -f compose/docker-compose.yml up -d
+```
+
+Keep the port on loopback or behind an authenticated TLS proxy. See `docs/runbook.md` for profiles, import, backups and upgrades.
+
+## Rollback
+
+```bash
+git switch archive/python-control-plane
+# or inspect the tag:
+git show pre-kandev-only --stat
+```
+
+The archive contains the Python CLI, contract schema, verifier prompt, tests and demo scripts as they were before this simplification.
 
 ---
 
-*— Andi · 2026-11-22*
+*— Andi · 2026-11-24*

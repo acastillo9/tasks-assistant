@@ -1,9 +1,0 @@
-diff --git a/src/demo_repo/__init__.py b/src/demo_repo/__init__.py
-index 1111111..2222222 100644
---- a/src/demo_repo/__init__.py
-+++ b/src/demo_repo/__init__.py
-@@ -1,2 +1,4 @@
- def greet(name: str) -> str:
-+    if not name or not name.strip():
-+        raise ValueError("name required")
-     return f"Hello, {name}!"

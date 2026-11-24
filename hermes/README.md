@@ -26,7 +26,7 @@ If Hermes runs in another container/host, use the private IP or a tunnel; never 
 - `update_task_kandev` — priority and fields without changing state.
 - `list_workflows_kandev` / `list_workflow_steps_kandev` — discover the `Gated Coding` workflow.
 
-A task created by Hermes enters `Intake`. A human writes the contract; Hermes may draft one in `description`, but not the contract itself.
+A task created by Hermes enters `Intake`. Hermes may draft the objective, acceptance checklist and test commands in the description, but a human completes and approves them. Hermes must not approve its own work.
 
 ## Telegram flows
 
@@ -37,7 +37,7 @@ A task created by Hermes enters `Intake`. A human writes the contract; Hermes ma
 | `approve plan <task>` | Move to Build only if the plan has been reviewed |
 | `reject <task> <reason>` | Comment and send back to Build |
 | `digest` | Run the prompt in `hermes/digest.md` |
-| `cost` | Read `tasks-assistant report` or the Kandev stats |
+| `cost` | Read Kandev session token usage |
 
 ## Daily digest
 
@@ -47,8 +47,9 @@ Hermes cron, once a day:
 Read the active Kandev tasks. For each one report:
 - id, title and current step,
 - hours since the last activity,
-- if it is in Verify, the verdict and attempt cost,
-- if it exceeded budget.max_attempts or has been stuck for > 24h.
+- if it is in Verify, the PASS/FAIL summary and token usage,
+- if it is in Human Gate, whether the plan and the Verify report are present,
+- if it has been stuck for more than 24h or exceeded two Build loops.
 
 Format: short list, no filler. At the end, at most 3 suggested actions.
 Do not move tasks or approve anything; only report.
@@ -63,4 +64,4 @@ Do not move tasks or approve anything; only report.
 
 ---
 
-*— Andi · 2026-11-22*
+*— Andi · 2026-11-24*

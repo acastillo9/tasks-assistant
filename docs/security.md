@@ -4,12 +4,14 @@
 
 | Component | Trust | Can write |
 |---|---|---|
-| Contract | High (human) | It is the source of truth |
-| Checks | High (human) | Nothing; they only run commands |
-| Builder | Medium | Only the worktree, within scope |
+| Task description | High (human) | It is the spec |
+| Approved plan | High after human review (agent-drafted) | It defines scope |
+| Builder | Medium | Only the worktree, within the approved plan |
 | Verifier | Low for writes / high for reads | Nothing |
 | Diff and repo content | Untrusted | Data, not instructions |
 | Hermes | Medium | Create/query tasks via MCP |
+
+There is no immutable contract file and no CLI enforcing these boundaries. They are process controls: the approved plan, the separate Verify profile, the exact test commands and the Human Gate.
 
 ## Panel
 
@@ -20,31 +22,33 @@
 
 ## Secrets
 
-- `VERIFIER_API_KEY` goes in environment variables or the Kandev secret manager, never in the contract.
+- Model provider keys belong in the agent profile or the Kandev secret manager. Do not put them in the task description.
 - No production credentials in agents. Read-only tokens when sufficient.
 - Separate keys by role and set spending caps at the provider.
-- `runs/` may contain diffs and test output: do not commit it.
+- Do not commit `.env`, tokens, worktree contents or task conversations.
 
 ## Prompt injection
 
-The repo, issues and comments are untrusted content.
+The repository, issues, comments and diffs are untrusted content.
 
-- The verifier system prompt declares the diff as data and delimits `<untrusted_diff>`; the CLI neutralizes the closing delimiter.
-- The builder must not execute instructions found in repo files.
+- The task description is human-authored, but repository files are not. The builder must not follow instructions found in repo files.
+- The Verify prompt must treat the diff as data and review it, not execute instructions from it.
 - Least privilege: no production access, no `sudo`, no SSH to other hosts.
 - Sandbox: Docker/SSH executor per task, with CPU/RAM limits and restricted network.
-- If a task touches CI, auth, migrations or infrastructure, treat it as protected and require an explicit human gate.
+- If a task touches CI, auth, migrations or infrastructure, treat it as protected and require an explicit human decision at the Human Gate.
 
 ## Verification
 
-- The verifier runs in plan/read-only mode and with another provider/model.
-- The CLI downgrades any `PASS` with incomplete criteria, `blocker`/`major` findings, weakened tests or modified protected files to `FAIL`.
-- A `PASS` does not authorize a merge: the human gate is mandatory.
-- Check commands come from the human contract; an agent cannot add or change commands.
+- Verify runs with a different provider/model from Build.
+- Verify is read-only and re-runs the exact test commands from the task description.
+- The builder must not weaken tests to make them pass.
+- A Verify `PASS` does not authorize a merge: the Human Gate is mandatory.
+- If any acceptance item is unverified, do not approve.
+- These are conventions, not enforced by a CLI. The Human Gate is the enforcement point.
 
 ## Data
 
-- SQLite and worktrees in `~/.kandev` / the `kandev-data` volume.
+- SQLite, plans and worktrees live in `~/.kandev` / the `kandev-data` volume.
 - Encrypted backups (restic) and a tested restore.
 - Worktree retention: delete them when archiving the task.
 - Logs: do not include tokens or personal data; if a log contains them, redact it before sharing.
@@ -58,8 +62,10 @@ The repo, issues and comments are untrusted content.
 - [ ] Per-key spending caps.
 - [ ] Backup + tested restore.
 - [ ] Pinned Kandev version (no `latest`).
-- [ ] Workflow and contract reviewed by a human.
+- [ ] Workflow reviewed by a human.
+- [ ] `Planner`, `Builder` and `Verifier` profiles assigned to the correct steps.
+- [ ] Verify uses a different provider/model from Build.
 
 ---
 
-*— Andi · 2026-11-22*
+*— Andi · 2026-11-24*

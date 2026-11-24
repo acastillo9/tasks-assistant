@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Usage: ./scripts/import-workflow.sh [workflow.yaml] [workspace-id]
+# KANDEV_URL overrides the default http://127.0.0.1:38429.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

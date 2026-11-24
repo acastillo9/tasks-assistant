@@ -1,26 +1,48 @@
 # AGENTS.md
 
+## What this repo is
+
+A Kandev-only gated-coding setup: one portable workflow plus the docs needed to run it. There is no `tasks-assistant` CLI, no per-task contract YAML, no `runs/` evidence directory and no verifier API call outside Kandev.
+
+The task description is the spec. The approved task plan is the contract. Kandev runs the agents and stores the history.
+
 ## Commands
 
-- Setup: `uv sync --dev` (Python 3.11+, uv; Node is not used).
-- CI gates, in order: `uv run ruff check .` then `uv run pytest`.
-- Single test: `uv run pytest tests/test_verify.py::test_name`.
-- Optional typecheck, not wired into CI: `uv run mypy src`.
-- CLI: `uv run tasks-assistant ...`. Bare `tasks-assistant` / `tasks` exist only after `uv tool install --editable .`; the demo scripts and docs assume that install.
-- Token-free end-to-end: `./scripts/demo-local.sh`; repo-less variant: `./scripts/demo-no-repo.sh`. Both start a mock verifier and use a temporary state dir.
+- Start Kandev locally: `kandev start --headless` (panel at `http://127.0.0.1:38429`).
+- Import the workflow: `./scripts/import-workflow.sh` or `./scripts/import-workflow.sh workflows/gated-coding.yaml <workspace-id>`.
+- VPS: `docker compose -f compose/docker-compose.yml up -d`.
+- There is no Python test suite or lint gate in this repo. Validate a change by importing the workflow into a disposable workspace and walking one task through it.
 
-## How the control plane fits together
+## How the flow fits together
 
-- Entrypoint `src/tasks_assistant/cli.py` exposes `init`, `check`, `verify`, `report`. `check` runs the contract's shell commands (layer 1). `verify` only runs after layer 1 passes; it builds a prompt from contract + check tails + diff, calls an OpenAI-compatible endpoint, applies guards, and writes evidence.
-- Evidence lives under `runs/<task-id>/attempt-N/` (`checks.json`, `verdict.json`, `verifier-prompt.md`, logs), with history in `runs/ledger.jsonl`. `runs/` is gitignored: do not commit or hand-edit it.
-- `TASKS_ASSISTANT_HOME` is the repo root used to find `contracts/`, `verifier/prompt.md`, and `config/pricing.yaml`; `TASKS_ASSISTANT_STATE_DIR` overrides where `runs/` is written. Set both when invoking the CLI outside this checkout.
-- `contracts/tasks/<kandev-task-id>.yaml` are real human-authored contracts; `contracts/examples/` and `examples/` are test fixtures. Never change a contract, its checks, or tests to make verification pass.
+- `workflows/gated-coding.yaml` defines Intake -> Plan -> Build -> Verify -> Human Gate -> Done.
+- Intake is human: objective, acceptance checklist, exact test commands, out of scope, repo/branch.
+- Plan runs in Kandev plan mode with the `Planner` profile and saves the plan via `create_task_plan_kandev`. A human approves the plan before Build.
+- Build uses the `Builder` profile, implements only the approved plan, commits, runs the tests and calls `step_complete_kandev`.
+- Verify uses the `Verifier` profile (different provider/model), is read-only, re-runs the exact tests and reports PASS/FAIL per acceptance item.
+- Build and Verify use `auto_advance_requires_signal: true`; they do not advance without `step_complete_kandev`.
+- Human Gate is the only approval. No agent approves its own work.
 
 ## Repo-specific traps
 
-- Contract validation is hand-coded in `src/tasks_assistant/contract.py`; `contracts/task-contract.schema.json` is documentation only. Keep both in sync manually.
-- `tests/baseline/` holds historical TypeScript-era artifacts used only by `tests/test_parity.py` to lock JSON schemas and verifier-prompt headings. The active implementation is Python; do not restore Node/npm tooling, and update these fixtures only for deliberate schema/prompt changes.
-- `verify --diff-base` does not include untracked file contents (only lists their names). Stage new files or pass `--diff`. Diffs over `MAX_DIFF_BYTES` (200 KB) fail instead of truncating.
-- Running `check`/`verify` manually appends ledger entries and advances the attempt count, including `ERROR` entries from failed checks. Experiment with a temporary `TASKS_ASSISTANT_STATE_DIR` to avoid burning a task's `max_attempts`.
-- `config/pricing.yaml` is gitignored; without it `cost_usd` is `null` and reports show `no-rate`. Copy `config/pricing.example.yaml` when cost reporting matters.
-- `verify` needs `VERIFIER_BASE_URL` and `VERIFIER_API_KEY`, and builder/verifier must differ in provider+model; `--dry-run` skips the API call. Kandev, its workflow (`workflows/gated-coding.yaml`), compose, and Hermes are external integrations not covered by the Python suite.
+- **Import skips existing workflow names.** Kandev does not update a workflow in place. Delete or rename the existing `Gated Coding` workflow first, then import. `scripts/import-workflow.sh` fails loudly when it gets a `skipped` response.
+- **Import does not create agent profiles.** It links by display name/model/mode. Create `Planner`, `Builder` and `Verifier` in Settings > Agents first, and confirm every step in the UI after import. A missing profile silently falls back to the task's agent.
+- **The workflow is per workspace and per Kandev instance.** Import it separately on the VPS or any other installation.
+- **`step_complete_kandev` is the completion gate.** If the agent cannot find the tool, tell it to search the active tool catalog. A turn that never signals leaves the task in Build or Verify.
+- **There is no immutable contract.** The task description and plan are editable. Do not treat prompt instructions or `allow_manual_move` as a security boundary; the Human Gate is the control.
+- **Do not reintroduce the old CLI/contract layer** without an explicit decision. The previous implementation is archived at tag `pre-kandev-only` and branch `archive/python-control-plane`.
+- **VPS needs only Kandev.** Do not install `uv`, the CLI or contract files there. `TASKS_ASSISTANT_HOME` is gone; remove it from executor profiles.
+- **Workflow changes are code.** Keep `workflows/gated-coding.yaml` in git and export the Kandev workflow before large edits.
+
+## Layout
+
+| Path | What it is |
+|---|---|
+| `workflows/gated-coding.yaml` | The workflow |
+| `scripts/import-workflow.sh` | Import helper |
+| `docs/task-template.md` | Task description template |
+| `docs/runbook.md` | Install, profiles, import, operate, VPS |
+| `docs/security.md` | Trust boundaries and VPS checklist |
+| `docs/cost-controls.md` | Kandev-native cost controls |
+| `compose/docker-compose.yml` | Kandev for the VPS |
+| `hermes/` | Optional Telegram operator via Kandev MCP |

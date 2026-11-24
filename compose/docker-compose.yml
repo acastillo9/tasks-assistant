@@ -10,7 +10,7 @@ services:
       KANDEV_HOME_DIR: /data
       KANDEV_LOG_LEVEL: ${KANDEV_LOG_LEVEL:-info}
     volumes:
-      # The repo and the Python CLI live inside /data (see docs/runbook.md §7.1).
+      # SQLite, plans and worktrees. The workflow is imported, not mounted.
       - kandev-data:/data
     cpus: "2.0"
     mem_limit: 4g
