@@ -1,39 +1,40 @@
 id: demo-greet
-title: "Saludo con validación de nombre"
-objective: "greet(name) saluda y rechaza nombres vacíos."
+title: "Greeting with name validation"
+objective: "greet(name) greets and rejects empty names."
 status: ready
 
 acceptance:
   - id: A1
-    criterion: "greet('Andrés') devuelve 'Hola, Andrés!'."
+    criterion: "greet('Andrés') returns 'Hello, Andrés!'."
     evidence: test
   - id: A2
-    criterion: "greet('') lanza un error con mensaje 'nombre requerido'."
+    criterion: "greet('') raises an error with message 'name required'."
     evidence: test
 
 no_goals:
-  - "No cambiar la firma de greet."
-  - "No agregar dependencias."
+  - "Do not change the greet signature."
+  - "Do not add dependencies."
 
 scope:
   repos:
     - examples/demo-repo
   paths_allow:
     - "src/**"
-    - "test/**"
+    - "tests/**"
   paths_deny:
     - ".github/**"
-    - "package-lock.json"
+    - "uv.lock"
+    - "pyproject.toml"
 
 checks:
   - name: tests
-    run: "npm test"
+    run: "uv run --project . pytest -q"
     timeout_s: 60
 
 models:
   planner:
     provider: frontier
-    model: definir
+    model: define
   builder:
     provider: deepseek
     model: deepseek-chat

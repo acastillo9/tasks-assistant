@@ -2,14 +2,15 @@ name: tasks-assistant
 
 services:
   kandev:
-    # Fija un tag real en .env; nunca uses latest en un despliegue persistente.
-    image: ghcr.io/kdlbs/kandev:${KANDEV_VERSION:?define KANDEV_VERSION en .env}
+    # Pin a real tag in .env; never use latest in a persistent deployment.
+    image: ghcr.io/kdlbs/kandev:${KANDEV_VERSION:?set KANDEV_VERSION in .env}
     ports:
       - "127.0.0.1:${KANDEV_PORT:-38429}:38429"
     environment:
       KANDEV_HOME_DIR: /data
       KANDEV_LOG_LEVEL: ${KANDEV_LOG_LEVEL:-info}
     volumes:
+      # The repo and the Python CLI live inside /data (see docs/runbook.md §7.1).
       - kandev-data:/data
     cpus: "2.0"
     mem_limit: 4g
@@ -17,9 +18,9 @@ services:
     healthcheck:
       test:
         - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:38429/api/v1/workspaces').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        - curl
+        - -f
+        - http://127.0.0.1:38429/ready
       interval: 30s
       timeout: 5s
       retries: 3

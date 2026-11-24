@@ -1,31 +1,32 @@
-# Workflow portable de Kandev — plan → build → verify → gate humano.
+# Portable Kandev workflow — plan → build → verify → human gate.
 #
-# Importar:
+# Import:
 #   ./scripts/import-workflow.sh <workspace-id>
 #
-# El import no crea agentes ni modelos. Asigna el perfil OpenCode en
-# Settings > Agents y el modelo por rol (planner/builder/verifier) en cada
-# perfil antes de usar el workflow. El campo `agent_profile` solo enlaza el
-# agente OpenCode por nombre visible; un modelo que no exista se descarta en
-# silencio al importar.
+# The import does not create agents or models. Assign the OpenCode profile in
+# Settings > Agents and the model per role (planner/builder/verifier) in each
+# profile before using the workflow. The `agent_profile` field only links the
+# OpenCode agent by display name; a model that does not exist is silently
+# dropped on import.
 version: 1
 type: kandev_workflow
 workflows:
   - name: Gated Coding
-    description: Contrato humano, plan aprobado, build barato, checks deterministas, verifier con otro modelo y gate humano.
+    description: Human contract, approved plan, cheap build, deterministic checks, verifier with another model and human gate.
     prompt: |
-      Trabajas dentro de una tarea con contrato. El contrato vive en
-      $HOME/acastillo/tasks-assistant/contracts/tasks/{task_id}.yaml y es la fuente de
-      verdad escrita por un humano.
+      You work inside a task with a contract. The contract lives at
+      $TASKS_ASSISTANT_HOME/contracts/tasks/{task_id}.yaml and is the source of
+      truth written by a human. Set TASKS_ASSISTANT_HOME in the executor
+      profile (for example /data/tasks-assistant on the VPS).
 
-      Reglas que aplican en todos los pasos:
-      - Lee el contrato completo antes de actuar.
-      - Nunca edites el contrato, los criterios de aceptación ni los comandos de test.
-      - Nunca debilites tests para hacerlos pasar.
-      - No toques archivos fuera de scope.paths_allow ni archivos protegidos.
-      - Si el contrato es ambiguo o falta información, detente y pregunta.
-      - Máximo 2 intentos de build. Al tercero, escala a un humano.
-      - Al terminar cada paso, reporta qué hiciste, qué comandos corriste y qué riesgos quedan.
+      Rules that apply to every step:
+      - Read the full contract before acting.
+      - Never edit the contract, the acceptance criteria or the test commands.
+      - Never weaken tests to make them pass.
+      - Do not touch files outside scope.paths_allow or protected files.
+      - If the contract is ambiguous or information is missing, stop and ask.
+      - At most 2 build attempts. On the third, escalate to a human.
+      - When each step ends, report what you did, which commands you ran and what risks remain.
     agent_profile:
       agent_name: OpenCode
     steps:
@@ -36,11 +37,11 @@ workflows:
         show_in_command_panel: true
         allow_manual_move: true
         prompt: |
-          Este paso es humano. Antes de mover la tarea:
-          1. Crea el contrato: tasks-assistant init --id {task_id} --title "..."
-          2. Completa objetivo, criterios, no-goals, scope, tests y presupuesto.
-          3. Revisa que cada criterio tenga evidencia verificable.
-          4. Mueve la tarea a Plan.
+          This step is human. Before moving the task:
+          1. Create the contract: tasks-assistant init --id {task_id} --title "..."
+          2. Complete the objective, criteria, no-goals, scope, tests and budget.
+          3. Check that every criterion has verifiable evidence.
+          4. Move the task to Plan.
 
       - name: Plan
         position: 1
@@ -49,17 +50,17 @@ workflows:
         show_in_command_panel: true
         allow_manual_move: true
         prompt: |
-          Rol: planner. No escribas código ni edites archivos.
+          Role: planner. Do not write code or edit files.
 
-          Analiza el contrato y el repo. Produce un plan con:
-          - requisitos y supuestos,
-          - archivos que se van a tocar,
-          - pasos ordenados,
-          - plan de pruebas (comandos exactos del contrato),
-          - riesgos y qué no se toca.
+          Analyze the contract and the repo. Produce a plan with:
+          - requirements and assumptions,
+          - files that will be touched,
+          - ordered steps,
+          - test plan (exact commands from the contract),
+          - risks and what will not be touched.
 
-          Guarda el plan con create_task_plan_kandev y detente para revisión
-          humana. No avances a Build por tu cuenta.
+          Save the plan with create_task_plan_kandev and stop for human
+          review. Do not move to Build on your own.
         events:
           on_enter:
             - type: enable_plan_mode
@@ -74,15 +75,15 @@ workflows:
         show_in_command_panel: true
         allow_manual_move: true
         prompt: |
-          Rol: builder. Implementa únicamente el plan aprobado, dentro del scope.
+          Role: builder. Implement only the approved plan, within scope.
 
-          - Usa el modelo económico asignado a este perfil.
-          - Commitea el trabajo en la worktree de la tarea.
-          - No edites tests para hacerlos pasar; si un test está mal, dilo.
-          - Si necesitas tocar un archivo protegido o fuera de scope, detente.
+          - Use the economy model assigned to this profile.
+          - Commit the work in the task worktree.
+          - Do not edit tests to make them pass; if a test is wrong, say so.
+          - If you need to touch a protected or out-of-scope file, stop.
 
-          Al terminar reporta: archivos cambiados, comandos corridos, tests que
-          agregaste y riesgos. Luego pasa a Verify.
+          When finished, report: changed files, commands run, tests you
+          added and risks. Then move to Verify.
         events:
           on_enter:
             - type: auto_start_agent
@@ -98,19 +99,23 @@ workflows:
         show_in_command_panel: true
         allow_manual_move: true
         prompt: |
-          Rol: verifier. Eres read-only: no edites archivos, no commitees, no
-          "arregles" nada. Otro modelo y otro proveedor hacen esta revisión.
+          Role: verifier. You are read-only: do not edit files, do not commit,
+          do not "fix" anything. Another model and another provider perform
+          this review.
 
-          Paso 1 — capa determinista:
-            tasks-assistant check --contract $HOME/acastillo/tasks-assistant/contracts/tasks/{task_id}.yaml --repo .
-          Si falla, reporta FAIL con el log y no llames al verifier.
+          Step 1 — deterministic layer:
+            tasks-assistant check --contract "$TASKS_ASSISTANT_HOME/contracts/tasks/{task_id}.yaml" --repo .
+          If it fails, report FAIL with the log and do not call the verifier.
 
-          Paso 2 — capa LLM:
-            tasks-assistant verify --contract $HOME/acastillo/tasks-assistant/contracts/tasks/{task_id}.yaml --repo . --diff-base main --save-prompt
-          Adjunta la ruta de verdict.json, el resumen y el costo.
+          Step 2 — LLM layer:
+            tasks-assistant verify --contract "$TASKS_ASSISTANT_HOME/contracts/tasks/{task_id}.yaml" --repo . --diff-base main --save-prompt
+          If the workspace is not a Git repo, generate a patch and use --diff:
+            diff -u /dev/null <file> > .kandev/changes.diff
+            tasks-assistant verify --contract "$TASKS_ASSISTANT_HOME/contracts/tasks/{task_id}.yaml" --repo . --diff .kandev/changes.diff --save-prompt
+          Attach the verdict.json path, the summary and the cost.
 
-          Si el veredicto es FAIL, lista los hallazgos blocker/major con
-          archivo:línea y pasa a Human Gate. No reintentes por tu cuenta.
+          If the verdict is FAIL, list the blocker/major findings with
+          file:line and move to Human Gate. Do not retry on your own.
 
       - name: Human Gate
         position: 4
@@ -119,16 +124,16 @@ workflows:
         show_in_command_panel: true
         allow_manual_move: true
         prompt: |
-          Este paso es humano. Revisa:
-          - diff completo y archivos tocados,
-          - verdict.json y salida de checks,
-          - costo del intento: tasks-assistant report,
-          - que no haya secretos, cambios de CI ni archivos protegidos.
+          This step is human. Review:
+          - full diff and touched files,
+          - verdict.json and check output,
+          - attempt cost: tasks-assistant report,
+          - that there are no secrets, CI changes or protected files.
 
           Decide:
-          - aprobar y mover a Done,
-          - devolver a Build con comentarios (máximo 2 intentos),
-          - escalar si el contrato estaba mal o el riesgo es alto.
+          - approve and move to Done,
+          - send back to Build with comments (at most 2 attempts),
+          - escalate if the contract was wrong or the risk is high.
 
       - name: Done
         position: 5

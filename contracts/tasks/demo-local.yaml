@@ -1,0 +1,56 @@
+id: demo-local
+title: "Local greet demo"
+objective: "greet(name) greets and rejects empty names."
+status: ready
+
+acceptance:
+  - id: A1
+    criterion: "greet('Andrés') returns 'Hello, Andrés!'."
+    evidence: test
+  - id: A2
+    criterion: "greet('') raises ValueError with message 'name required'."
+    evidence: test
+
+no_goals:
+  - "Do not change the greet signature."
+  - "Do not add dependencies."
+
+scope:
+  repos:
+    - examples/demo-repo
+  paths_allow:
+    - "src/**"
+    - "tests/**"
+  paths_deny:
+    - ".github/**"
+    - "uv.lock"
+    - "pyproject.toml"
+
+checks:
+  - name: tests
+    run: "uv run --project . pytest -q"
+    timeout_s: 60
+
+models:
+  planner:
+    provider: frontier
+    model: define
+  builder:
+    provider: deepseek
+    model: deepseek-chat
+  verifier:
+    provider: openrouter
+    model: anthropic/claude-sonnet-4.5
+
+budget:
+  max_attempts: 2
+  max_minutes: 10
+  max_usd: 0.5
+
+protected_paths:
+  - ".github/**"
+
+evidence_required:
+  - tests
+  - diff
+  - verifier_verdict

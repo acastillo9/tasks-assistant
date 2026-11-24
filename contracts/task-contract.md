@@ -1,47 +1,47 @@
-# Contrato de tarea
+# Task contract
 
-Un contrato es el único input confiable del flujo. Lo escribe un humano, no el agente. El builder no lo edita; el verifier lo usa como fuente de verdad.
+A contract is the only trusted input to the flow. A human writes it, not the agent. The builder does not edit it; the verifier uses it as the source of truth.
 
-## Reglas
+## Rules
 
-1. **Criterios verificables.** Cada criterio tiene un id y una evidencia: `test`, `diff`, `artifact` o `manual`. Si no se puede verificar, no es un criterio.
-2. **Comandos exactos.** Los checks son comandos que corren en la worktree del builder, sin intervención de un LLM. Si un comando no existe, se falla; no se inventa.
-3. **Scope explícito.** `paths_allow` y `paths_deny` en globs. Todo lo demás está prohibido.
-4. **Presupuesto cerrado.** `max_attempts` entre 1 y 5. Dos es el default sano; tres es el techo.
-5. **Modelos distintos.** `builder` y `verifier` no pueden ser el mismo par proveedor/modelo. El CLI falla si lo son.
-6. **Sin secretos.** El contrato se commitea. Nada de keys, tokens ni rutas privadas.
+1. **Verifiable criteria.** Every criterion has an id and evidence: `test`, `diff`, `artifact` or `manual`. If it cannot be verified, it is not a criterion.
+2. **Exact commands.** Checks are commands that run in the builder's worktree, without LLM intervention. If a command does not exist, the check fails; it is not invented.
+3. **Explicit scope.** `paths_allow` and `paths_deny` use globs. Everything else is forbidden.
+4. **Closed budget.** `max_attempts` between 1 and 5. Two is the healthy default; three is the ceiling.
+5. **Distinct models.** `builder` and `verifier` cannot be the same provider/model pair. The CLI fails if they are.
+6. **No secrets.** The contract is committed. No keys, tokens or private paths.
 
-## Flujo
+## Flow
 
 ```
-Intake (humano escribe el contrato)
-  → Plan (planner, sin código, aprobación humana)
-  → Build (builder barato, worktree)
-  → Verify (checks deterministas → verifier con otro modelo)
-  → Human Gate (diff + evidencia + costo)
+Intake (human writes the contract)
+  → Plan (planner, no code, human approval)
+  → Build (cheap builder, worktree)
+  → Verify (deterministic checks → verifier with another model)
+  → Human Gate (diff + evidence + cost)
   → Done
 ```
 
-Si Verify falla, el humano devuelve a Build. El contador de intentos vive en `runs/ledger.jsonl`; al superar `max_attempts`, se escala.
+If Verify fails, the human sends the task back to Build. The attempt counter lives in `runs/ledger.jsonl`; when `max_attempts` is exceeded, the task is escalated.
 
-## Estructura mínima
+## Minimal structure
 
 ```yaml
-id: mi-tarea
-title: "Una frase"
-objective: "Qué debe lograrse."
+id: my-task
+title: "One sentence"
+objective: "What must be achieved."
 acceptance:
   - id: A1
-    criterion: "El endpoint responde 200 con el payload X."
+    criterion: "The endpoint returns 200 with payload X."
     evidence: test
 no_goals:
-  - "No tocar autenticación."
+  - "Do not touch authentication."
 scope:
-  paths_allow: ["src/**", "test/**"]
-  paths_deny: [".github/**"]
+  paths_allow: ["src/**", "tests/**"]
+  paths_deny: [".github/**", "uv.lock", "pyproject.toml"]
 checks:
   - name: tests
-    run: "npm test"
+    run: "uv run --project . pytest -q"
     timeout_s: 300
 models:
   builder: { provider: deepseek, model: deepseek-chat }
@@ -50,8 +50,8 @@ budget:
   max_attempts: 2
 ```
 
-El esquema completo está en `contracts/task-contract.schema.json`. Para crear uno:
+The full schema is in `contracts/task-contract.schema.json`. To create one:
 
 ```bash
-tasks-assistant init --id mi-tarea --title "Una frase"
+tasks-assistant init --id my-task --title "One sentence"
 ```

@@ -1,40 +1,40 @@
-# Controles de costo
+# Cost controls
 
-Objetivo: pagar VPS + tokens, nada más. El gasto se controla en cuatro capas: política, contrato, runtime y proveedor.
+Goal: pay for the VPS + tokens, nothing else. Spending is controlled at four layers: policy, contract, runtime and provider.
 
-## Dónde se aplica cada control
+## Where each control applies
 
-| Control | Dónde vive | ¿Automático? |
+| Control | Where it lives | Automatic? |
 |---|---|---|
-| Máximo de intentos | `budget.max_attempts` + `tasks-assistant verify` | Sí: el CLI rechaza el intento N+1 |
-| Presupuesto por tarea | `budget.max_usd` | Parcial: queda en el contrato y el ledger; el corte es humano |
-| Concurrencia 1–2 | Kandev / executor | Configuración manual |
-| Tests antes del verifier | `tasks-assistant verify` | Sí: falla si la capa 1 no pasó |
-| Contexto mínimo | `MAX_DIFF_BYTES` (200 KB) | Sí: falla en vez de truncar |
-| Modelo barato por defecto | Perfil del paso `Build` | Configuración manual |
-| Escalar a modelo caro | Perfil `Plan` o reintento | Humano |
-| Tope de gasto por key | Panel del proveedor | Externo |
-| Prompt caching | Proveedor | Configuración del proveedor |
-| Ledger de costo | `runs/ledger.jsonl` | Sí, por verifier |
+| Maximum attempts | `budget.max_attempts` + `tasks-assistant verify` | Yes: the CLI rejects attempt N+1 |
+| Per-task budget | `budget.max_usd` | Partial: it stays in the contract and ledger; the cutoff is human |
+| Concurrency 1–2 | Kandev / executor | Manual configuration |
+| Tests before the verifier | `tasks-assistant verify` | Yes: fails if layer 1 did not pass |
+| Minimal context | `MAX_DIFF_BYTES` (200 KB) | Yes: fails instead of truncating |
+| Cheap model by default | `Build` step profile | Manual configuration |
+| Escalate to an expensive model | `Plan` profile or retry | Human |
+| Per-key spending cap | Provider panel | External |
+| Prompt caching | Provider | Provider configuration |
+| Cost ledger | `runs/ledger.jsonl` | Yes, per verifier |
 
-## Presupuesto del contrato
+## Contract budget
 
 ```yaml
 budget:
-  max_attempts: 2      # 1–5; el CLI bloquea el exceso
-  max_minutes: 30      # objetivo operativo
-  max_usd: 1           # umbral de revisión humana
+  max_attempts: 2      # 1–5; the CLI blocks excess
+  max_minutes: 30      # operational target
+  max_usd: 1           # human review threshold
 ```
 
-`max_minutes` y `max_usd` no cortan una ejecución por sí solos: son el contrato que el Human Gate revisa. Si quieres corte duro, configura el límite en el proveedor y en el executor (CPU/RAM/tiempo).
+`max_minutes` and `max_usd` do not cut a run by themselves: they are the contract the Human Gate reviews. If you want a hard cutoff, configure the limit at the provider and in the executor (CPU/RAM/time).
 
 ## Ledger
 
-Cada verificación agrega una línea:
+Each verification appends a line:
 
 ```json
 {
-  "task_id": "mi-tarea",
+  "task_id": "my-task",
   "attempt": 1,
   "builder": { "provider": "deepseek", "model": "deepseek-chat" },
   "verifier": { "provider": "openrouter", "model": "anthropic/claude-sonnet-4.5" },
@@ -45,29 +45,29 @@ Cada verificación agrega una línea:
 }
 ```
 
-El costo se calcula solo si el modelo está en `config/pricing.yaml`. Si falta, `cost_usd` es `null` y `tasks-assistant report` lo marca como `s/tarifa`. Mantén las tarifas actualizadas; el ledger es una estimación, no la factura.
+Cost is calculated only if the model is in `config/pricing.yaml`. If it is missing, `cost_usd` is `null` and `tasks-assistant report` marks it as `no-rate`. Keep rates up to date; the ledger is an estimate, not the invoice.
 
-El costo del builder **no** lo captura este ledger: Kandev muestra tokens por sesión. Cruza ambos en el Human Gate.
+This ledger does **not** capture the builder's cost: Kandev shows tokens per session. Cross-check both at the Human Gate.
 
-## Reglas de operación
+## Operating rules
 
-1. Builder económico por defecto. El modelo caro solo planea o desatasca.
-2. Máximo 2 intentos; el tercero lo paga un humano con su tiempo.
-3. Checks primero. Un verifier LLM sobre tests rotos es dinero tirado.
-4. Diff + criterios + salida de tests, no el repo completo.
-5. No reintentes el mismo prompt esperando otro resultado. Cambia el plan o escala.
-6. Una tarea = un objetivo. Si el diff no cabe en 200 KB, la tarea está mal partida.
+1. Economy builder by default. The expensive model only plans or unblocks.
+2. At most 2 attempts; the third is paid by a human with their time.
+3. Checks first. An LLM verifier over broken tests is money thrown away.
+4. Diff + criteria + test output, not the whole repo.
+5. Do not retry the same prompt expecting a different result. Change the plan or escalate.
+6. One task = one objective. If the diff does not fit in 200 KB, the task was split badly.
 
-## Estimación de una tarea
+## Estimating a task
 
 ```
-costo ≈ (tokens_plan × precio_planner)
-      + (tokens_build × precio_builder)
-      + (tokens_verify × precio_verifier)
-      + reintentos × (build + verify)
+cost ≈ (plan_tokens × planner_price)
+      + (build_tokens × builder_price)
+      + (verify_tokens × verifier_price)
+      + retries × (build + verify)
 ```
 
-Con un builder de ~$0.30/M tokens de entrada y un verifier de ~$3/M, el verifier suele costar más por llamada aunque consuma menos tokens. Por eso solo corre después de los checks.
+With a builder at ~$0.30/M input tokens and a verifier at ~$3/M, the verifier usually costs more per call even though it consumes fewer tokens. That is why it only runs after the checks.
 
 ---
 

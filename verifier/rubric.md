@@ -1,54 +1,54 @@
-# Rúbrica del verificador
+# Verifier rubric
 
-## 1. Cobertura del contrato
+## 1. Contract coverage
 
-| Pregunta | Evidencia esperada |
+| Question | Expected evidence |
 |---|---|
-| ¿Cada criterio tiene una prueba concreta? | Nombre de test, línea de código, salida de check |
-| ¿El diff implementa el objetivo, no otra cosa? | Archivos y funciones dentro de `scope.paths_allow` |
-| ¿Se respetaron los no-goals? | Ausencia de cambios en áreas prohibidas |
-| ¿Los archivos protegidos quedaron intactos? | `git diff --name-only` contra la lista |
+| Does every criterion have concrete proof? | Test name, code line, check output |
+| Does the diff implement the objective, and nothing else? | Files and functions within `scope.paths_allow` |
+| Were the no-goals respected? | No changes in prohibited areas |
+| Were protected files left untouched? | `git diff --name-only` against the list |
 
-## 2. Integridad de la verificación
+## 2. Verification integrity
 
-- Tests eliminados o comentados.
-- `it.skip`, `test.only`, `describe.skip` nuevos.
-- Asserts reemplazados por `expect(true).toBe(true)` o equivalentes.
-- Mocks que sustituyen la lógica bajo prueba.
-- Timeouts subidos para esconder un test lento.
-- Snapshots regenerados sin cambio funcional que lo justifique.
-- Cobertura declarada pero no ejecutada (`--if-present` que no corre nada).
+- Deleted or commented-out tests.
+- New `pytest.mark.skip`, `pytest.skip()` or `pytest.mark.xfail`.
+- Asserts replaced with `assert True` or equivalents.
+- Mocks that replace the logic under test.
+- Timeouts raised to hide a slow test.
+- Snapshots regenerated with no functional change to justify it.
+- Coverage claimed but not executed (`-k` that selects nothing).
 
-Si detectas cualquiera, `tests_weakened: true` y hallazgo `major` como mínimo.
+If you detect any of these, set `tests_weakened: true` and raise at least a `major` finding.
 
 ## 3. Scope
 
-- Todo archivo tocado debe caer en `paths_allow` y fuera de `paths_deny`.
-- Dependencias nuevas: solo si el contrato las permite o son imprescindibles; verifica lockfile.
-- Migraciones, configuración de CI, infraestructura: trátalas como protegidas salvo autorización explícita.
+- Every touched file must fall within `paths_allow` and outside `paths_deny`.
+- New dependencies: only if the contract allows them or they are essential; verify the lockfile.
+- Migrations, CI configuration, infrastructure: treat them as protected unless explicitly authorized.
 
-## 4. Seguridad
+## 4. Security
 
-- Secretos, tokens o credenciales en el diff.
-- `eval`, `new Function`, `child_process` con input no confiable.
-- SQL/command injection en rutas nuevas.
-- Auth desactivada, CORS abierto, permisos elevados.
-- Logs con datos personales o tokens.
-- Dependencias nuevas sin justificar o con scripts de instalación.
+- Secrets, tokens or credentials in the diff.
+- `eval`, `exec`, `subprocess` with untrusted input.
+- SQL/command injection in new paths.
+- Disabled auth, open CORS, elevated permissions.
+- Logs containing personal data or tokens.
+- Unjustified new dependencies or ones with install scripts.
 
-## 5. Correctitud y compatibilidad
+## 5. Correctness and compatibility
 
-- Errores no manejados en caminos nuevos.
-- Cambios de contrato público (API, esquema, CLI) sin actualizar consumidores.
-- Condiciones de borde: vacío, null, límites, concurrencia.
-- Compatibilidad con el runtime y versiones declaradas.
+- Unhandled errors in new paths.
+- Public contract changes (API, schema, CLI) without updating consumers.
+- Edge cases: empty, null, limits, concurrency.
+- Compatibility with the declared runtime and versions.
 
-## 6. Costo y disciplina
+## 6. Cost and discipline
 
-- El cambio es proporcional al objetivo; no hay refactor masivo escondido.
-- No se agregaron dependencias o servicios innecesarios.
-- El número de intentos está dentro del presupuesto.
+- The change is proportional to the objective; there is no hidden massive refactor.
+- No unnecessary dependencies or services were added.
+- The number of attempts is within budget.
 
-## Regla final
+## Final rule
 
-Un `PASS` significa: **el contrato se cumple, los tests siguen siendo confiables y no hay riesgo blocker/major sin declarar**. Todo lo demás es `FAIL` o `NOT_VERIFIED`.
+A `PASS` means: **the contract is met, tests are still trustworthy and there is no undeclared blocker/major risk**. Everything else is `FAIL` or `NOT_VERIFIED`.

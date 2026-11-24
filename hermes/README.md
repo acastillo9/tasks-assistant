@@ -1,65 +1,65 @@
 # Hermes ↔ Kandev
 
-Hermes es el operador: recibe mensajes, crea tareas, consulta estado y manda digest. No reemplaza el gate humano.
+Hermes is the operator: it receives messages, creates tasks, queries status and sends digests. It does not replace the human gate.
 
 ## MCP
 
-Kandev expone Streamable HTTP en `http://127.0.0.1:38429/mcp` (`/mcp/sse` para clientes legacy). En `~/.hermes/config.yaml`:
+Kandev exposes Streamable HTTP at `http://127.0.0.1:38429/mcp` (`/mcp/sse` for legacy clients). In `~/.hermes/config.yaml`:
 
 ```yaml
 mcp_servers:
   kandev:
     url: "http://127.0.0.1:38429/mcp"
-    # Si actives auth en Kandev, agrega el PAT:
+    # If you enable auth in Kandev, add the PAT:
     # headers:
     #   Authorization: "Bearer ${KANDEV_MCP_TOKEN}"
     timeout: 30
 ```
 
-Si Hermes corre en otro contenedor/host, usa la IP privada o un túnel; nunca expongas `/mcp` a internet.
+If Hermes runs in another container/host, use the private IP or a tunnel; never expose `/mcp` to the internet.
 
-## Tools útiles
+## Useful tools
 
-- `create_task_kandev` — crea la tarea; título ≤ 60 caracteres, contexto en `description`, repo explícito.
-- `list_tasks_kandev` / `get_task_kandev` — estado y conversación.
-- `move_task_kandev` — mover entre pasos (por ejemplo, aprobar el plan).
-- `update_task_kandev` — prioridad y campos sin cambiar de estado.
-- `list_workflows_kandev` / `list_workflow_steps_kandev` — descubrir el workflow `Gated Coding`.
+- `create_task_kandev` — creates the task; title ≤ 60 characters, context in `description`, explicit repo.
+- `list_tasks_kandev` / `get_task_kandev` — status and conversation.
+- `move_task_kandev` — move between steps (for example, approve the plan).
+- `update_task_kandev` — priority and fields without changing state.
+- `list_workflows_kandev` / `list_workflow_steps_kandev` — discover the `Gated Coding` workflow.
 
-La tarea creada por Hermes entra en `Intake`. El contrato lo escribe un humano; Hermes puede redactar un borrador en `description`, pero no el contrato.
+A task created by Hermes enters `Intake`. A human writes the contract; Hermes may draft one in `description`, but not the contract itself.
 
-## Flujos de Telegram
+## Telegram flows
 
-| Mensaje | Acción |
+| Message | Action |
 |---|---|
-| `nueva tarea <proyecto>: <objetivo>` | `create_task_kandev` en Intake, prioridad media |
-| `estado` | Lista tareas activas, paso, agente y última actualización |
-| `aprueba plan <task>` | Mueve a Build solo si el plan está revisado |
-| `rechaza <task> <motivo>` | Comenta y devuelve a Build |
-| `digest` | Corre el prompt de `hermes/digest.md` |
-| `costo` | Lee `tasks-assistant report` o las stats de Kandev |
+| `new task <project>: <objective>` | `create_task_kandev` in Intake, medium priority |
+| `status` | List active tasks, step, agent and last update |
+| `approve plan <task>` | Move to Build only if the plan has been reviewed |
+| `reject <task> <reason>` | Comment and send back to Build |
+| `digest` | Run the prompt in `hermes/digest.md` |
+| `cost` | Read `tasks-assistant report` or the Kandev stats |
 
-## Digest diario
+## Daily digest
 
-Cron de Hermes, una vez al día:
+Hermes cron, once a day:
 
 ```text
-Lee las tareas activas de Kandev. Para cada una reporta:
-- id, título y paso actual,
-- horas desde la última actividad,
-- si está en Verify, el veredicto y el costo del intento,
-- si superó budget.max_attempts o lleva > 24h estancada.
+Read the active Kandev tasks. For each one report:
+- id, title and current step,
+- hours since the last activity,
+- if it is in Verify, the verdict and attempt cost,
+- if it exceeded budget.max_attempts or has been stuck for > 24h.
 
-Formato: lista corta, sin relleno. Al final, máximo 3 acciones sugeridas.
-No muevas tareas ni apruebes nada; solo reporta.
+Format: short list, no filler. At the end, at most 3 suggested actions.
+Do not move tasks or approve anything; only report.
 ```
 
-## Seguridad
+## Security
 
-- Hermes con permisos mínimos: crear/leer/mover tareas, no borrar workspaces ni cambiar secretos.
-- Sin credenciales de producción en el contenedor de Hermes.
-- Si Kandev está en la misma VPS, usa `127.0.0.1`; si no, red privada.
-- Revisa el reporte de tools que Hermes carga; un MCP mal configurado puede exponer más de lo necesario.
+- Hermes with least privilege: create/read/move tasks, do not delete workspaces or change secrets.
+- No production credentials in the Hermes container.
+- If Kandev is on the same VPS, use `127.0.0.1`; otherwise, a private network.
+- Review the tool report Hermes loads; a misconfigured MCP can expose more than necessary.
 
 ---
 

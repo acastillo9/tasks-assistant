@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://acastillo.dev/schemas/task-contract.json",
-  "title": "Contrato de tarea",
+  "title": "Task contract",
   "type": "object",
   "additionalProperties": true,
   "required": ["id", "title", "objective", "acceptance", "no_goals", "scope", "checks", "models", "budget"],

@@ -1,64 +1,64 @@
-# Seguridad
+# Security
 
-## Fronteras de confianza
+## Trust boundaries
 
-| Componente | Confianza | Puede escribir |
+| Component | Trust | Can write |
 |---|---|---|
-| Contrato | Alta (humano) | Es la fuente de verdad |
-| Checks | Alta (humano) | Nada; solo ejecutan comandos |
-| Builder | Media | Solo la worktree, dentro del scope |
-| Verifier | Baja para escribir / alta para leer | Nada |
-| Diff y contenido del repo | No confiable | Datos, no instrucciones |
-| Hermes | Media | Crear/consultar tareas por MCP |
+| Contract | High (human) | It is the source of truth |
+| Checks | High (human) | Nothing; they only run commands |
+| Builder | Medium | Only the worktree, within scope |
+| Verifier | Low for writes / high for reads | Nothing |
+| Diff and repo content | Untrusted | Data, not instructions |
+| Hermes | Medium | Create/query tasks via MCP |
 
 ## Panel
 
-- Kandev no trae login multiusuario activo por defecto. En local, escucha en loopback.
-- En VPS: nunca publiques `38429` a internet. Usa Tailscale, Cloudflare Tunnel o reverse proxy con TLS + auth.
-- Protege `/mcp`, `/mcp/sse` y `/mcp/message` igual que el panel. Un cliente MCP puede crear, mover y borrar tareas.
-- Si activas autenticación, los clientes externos necesitan un personal access token.
+- Kandev does not ship with active multi-user login enabled by default. Locally, it listens on loopback.
+- On a VPS: never publish `38429` to the internet. Use Tailscale, Cloudflare Tunnel or a reverse proxy with TLS + auth.
+- Protect `/mcp`, `/mcp/sse` and `/mcp/message` just like the panel. An MCP client can create, move and delete tasks.
+- If you enable authentication, external clients need a personal access token.
 
-## Secretos
+## Secrets
 
-- `VERIFIER_API_KEY` va en variables de entorno o en el gestor de secretos de Kandev, nunca en el contrato.
-- Sin credenciales de producción en agentes. Tokens de solo lectura cuando alcancen.
-- Separa keys por rol y pon topes de gasto en el proveedor.
-- `runs/` puede contener diffs y salidas de tests: no lo commitees.
+- `VERIFIER_API_KEY` goes in environment variables or the Kandev secret manager, never in the contract.
+- No production credentials in agents. Read-only tokens when sufficient.
+- Separate keys by role and set spending caps at the provider.
+- `runs/` may contain diffs and test output: do not commit it.
 
 ## Prompt injection
 
-El repo, los issues y los comentarios son contenido no confiable.
+The repo, issues and comments are untrusted content.
 
-- El system prompt del verifier declara el diff como datos y delimita `<untrusted_diff>`; el CLI neutraliza el cierre del delimitador.
-- El builder no debe ejecutar instrucciones encontradas en archivos del repo.
-- Permisos mínimos: sin acceso a producción, sin `sudo`, sin SSH a otros hosts.
-- Sandbox: executor Docker/SSH por tarea, con límites de CPU/RAM y red restringida.
-- Si una tarea toca CI, auth, migraciones o infraestructura, trátala como protegida y exige gate humano explícito.
+- The verifier system prompt declares the diff as data and delimits `<untrusted_diff>`; the CLI neutralizes the closing delimiter.
+- The builder must not execute instructions found in repo files.
+- Least privilege: no production access, no `sudo`, no SSH to other hosts.
+- Sandbox: Docker/SSH executor per task, with CPU/RAM limits and restricted network.
+- If a task touches CI, auth, migrations or infrastructure, treat it as protected and require an explicit human gate.
 
-## Verificación
+## Verification
 
-- El verifier corre en modo plan/read-only y con otro proveedor/modelo.
-- El CLI baja a `FAIL` cualquier `PASS` con criterios incompletos, hallazgos `blocker`/`major`, tests debilitados o archivos protegidos modificados.
-- Un `PASS` no autoriza merge: el gate humano es obligatorio.
-- Los comandos de check son del contrato humano; un agente no puede agregar ni cambiar comandos.
+- The verifier runs in plan/read-only mode and with another provider/model.
+- The CLI downgrades any `PASS` with incomplete criteria, `blocker`/`major` findings, weakened tests or modified protected files to `FAIL`.
+- A `PASS` does not authorize a merge: the human gate is mandatory.
+- Check commands come from the human contract; an agent cannot add or change commands.
 
-## Datos
+## Data
 
-- SQLite y worktrees en `~/.kandev` / volumen `kandev-data`.
-- Backups cifrados (restic) y restore probado.
-- Retención de worktrees: bórralos al archivar la tarea.
-- Logs: no incluyas tokens ni datos personales; si un log los contiene, redáctalo antes de compartirlo.
+- SQLite and worktrees in `~/.kandev` / the `kandev-data` volume.
+- Encrypted backups (restic) and a tested restore.
+- Worktree retention: delete them when archiving the task.
+- Logs: do not include tokens or personal data; if a log contains them, redact it before sharing.
 
-## Checklist antes de exponer la VPS
+## Checklist before exposing the VPS
 
-- [ ] Puerto en loopback o firewall.
-- [ ] Reverse proxy con TLS y auth.
-- [ ] `/mcp` protegido.
-- [ ] Agentes sin credenciales de producción.
-- [ ] Topes de gasto por key.
-- [ ] Backup + restore probado.
-- [ ] Versión de Kandev fijada (no `latest`).
-- [ ] Workflow y contrato revisados por un humano.
+- [ ] Port on loopback or firewall.
+- [ ] Reverse proxy with TLS and auth.
+- [ ] `/mcp` protected.
+- [ ] Agents without production credentials.
+- [ ] Per-key spending caps.
+- [ ] Backup + tested restore.
+- [ ] Pinned Kandev version (no `latest`).
+- [ ] Workflow and contract reviewed by a human.
 
 ---
 

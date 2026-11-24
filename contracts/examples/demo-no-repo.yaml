@@ -1,0 +1,51 @@
+id: demo-no-repo
+title: "Publication checklist without a repo"
+objective: "Create a publication checklist with three minimum controls."
+status: ready
+
+acceptance:
+  - id: A1
+    criterion: "output.md contains the title and all three checked items."
+    evidence: artifact
+  - id: A2
+    criterion: "check.py validates the content and exits 0."
+    evidence: test
+
+no_goals:
+  - "Do not add dependencies."
+  - "Do not modify check.py."
+
+scope:
+  repos: []
+  paths_allow:
+    - "output.md"
+  paths_deny: []
+
+checks:
+  - name: content
+    run: "python3 check.py"
+    timeout_s: 30
+
+models:
+  planner:
+    provider: frontier
+    model: define
+  builder:
+    provider: deepseek
+    model: deepseek-chat
+  verifier:
+    provider: openrouter
+    model: anthropic/claude-sonnet-4.5
+
+budget:
+  max_attempts: 2
+  max_minutes: 10
+  max_usd: 0.5
+
+protected_paths:
+  - "check.py"
+
+evidence_required:
+  - tests
+  - diff
+  - verifier_verdict

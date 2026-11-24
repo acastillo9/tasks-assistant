@@ -1,7 +1,7 @@
 models:
-  # Tarifas de ejemplo en USD por millón de tokens. Cópialo a pricing.yaml
-  # y pon los números reales de tu proveedor. Sin entrada aquí, el costo
-  # queda como null y el ledger lo marca como "s/tarifa".
+  # Example rates in USD per million tokens. Copy this to pricing.yaml
+  # and use your provider's real numbers. Without an entry here, cost
+  # stays null and the ledger marks it as "no-rate".
   deepseek-chat:
     input_per_mtok: 0.27
     output_per_mtok: 1.10
